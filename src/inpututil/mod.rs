@@ -29,6 +29,7 @@ impl Default for InputController {
     }
 }
 
+#[allow(dead_code)]
 impl InputController {
     // return true if consumed event
     pub fn process_event(&mut self, event: &WindowEvent) -> bool {

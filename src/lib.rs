@@ -1,8 +1,10 @@
 mod brush;
+mod gi;
 mod inpututil;
 mod texturerenderer;
 
 use brush::Brush;
+use gi::GI;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -22,8 +24,9 @@ struct State<'a> {
 
     brush: Brush,
     texture_renderer: TextureRenderer,
+    gi: GI,
 
-    texture_1: wgpu::Texture,
+    in_texture: wgpu::Texture,
 }
 
 impl<'a> State<'a> {
@@ -57,23 +60,24 @@ impl<'a> State<'a> {
         let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap();
-        config.format = wgpu::TextureFormat::Rgba8Unorm;
+        config.format = wgpu::TextureFormat::Rgba8UnormSrgb;
         surface.configure(&device, &config);
 
         let brush = Brush::new(&device);
         let texture_renderer = TextureRenderer::new(&device, wgpu::FilterMode::Linear);
+        let gi = GI::new(&device);
 
         let input_controller = InputController::default();
 
-        let texture_1 = device.create_texture(&wgpu::TextureDescriptor {
+        let in_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: 2048,
-                height: 1024,
+                width: size.width,
+                height: size.height,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
@@ -83,22 +87,23 @@ impl<'a> State<'a> {
         State {
             device,
             queue,
+
             window,
             surface,
             config,
+
             brush,
             texture_renderer,
+            gi,
+
             input_controller,
 
-            texture_1,
+            in_texture,
         }
     }
 
     fn render(&mut self) {
         let output = self.surface.get_current_texture().unwrap();
-        let output_view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
 
         if self
             .input_controller
@@ -107,15 +112,18 @@ impl<'a> State<'a> {
             self.brush.draw(
                 &self.device,
                 &self.queue,
-                &self.texture_1,
+                &self.in_texture,
                 [1., 1., 1.],
                 self.input_controller.get_mouse_pos().into(),
-                10.,
+                30.,
             );
         }
 
-        self.texture_renderer
-            .render(&self.device, &self.queue, &self.texture_1, &output_view);
+        // self.texture_renderer
+        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+
+        self.gi
+            .render(&self.device, &self.queue, &self.in_texture, &output.texture);
 
         output.present();
     }
@@ -139,12 +147,13 @@ pub async fn run() {
                 window_id: _,
             } => {
                 let consumed = state.input_controller.process_event(&event);
-                if consumed {
-                    return;
-                }
+                // if consumed {
+                //     return;
+                // }
 
                 match event {
                     WindowEvent::Resized(new_size) => {
+                        // TODO: resize in_texture and all the other stuff
                         state.config.width = new_size.width;
                         state.config.height = new_size.height;
                         state.surface.configure(&state.device, &state.config);
@@ -153,8 +162,13 @@ pub async fn run() {
                     WindowEvent::RedrawRequested => {
                         state.render();
                         state.input_controller.init_frame();
-                        state.window.request_redraw();
+                        //state.window.request_redraw();
                     }
+                    WindowEvent::MouseInput {
+                        device_id: _,
+                        state: _,
+                        button: _,
+                    } => state.window.request_redraw(),
                     _ => {}
                 }
             }

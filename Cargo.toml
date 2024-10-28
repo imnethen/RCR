@@ -1,0 +1,23 @@
+[package]
+name = "grc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+env_logger = "0.11.5"
+log = "*"
+pollster = "0.3"
+bytemuck = { version = "1.16.1", features = [ "derive" ] }
+
+winit = "0.29.15"
+
+egui = "0.28.1"
+raw-window-handle = "0.6.2"
+egui-wgpu = { version = "0.28.1", features = ["winit"] }
+
+glam = "0.29.0"
+
+[dependencies.image]
+version = "0.25.2"
+default-features = false
+features = ["png", "jpeg"]

@@ -1,2 +1,3 @@
 # grc
-rc that is g
+
+good radiance cascades. as opposed to my previous, Bad implementation

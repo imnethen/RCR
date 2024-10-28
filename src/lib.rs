@@ -3,6 +3,7 @@ mod inpututil;
 mod texturerenderer;
 
 use brush::Brush;
+use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
 use winit::event::WindowEvent;
@@ -17,9 +18,12 @@ struct State<'a> {
     surface: wgpu::Surface<'a>,
     config: wgpu::SurfaceConfiguration,
 
-    brush: Brush,
-
     input_controller: InputController,
+
+    brush: Brush,
+    texture_renderer: TextureRenderer,
+
+    texture_1: wgpu::Texture,
 }
 
 impl<'a> State<'a> {
@@ -57,8 +61,24 @@ impl<'a> State<'a> {
         surface.configure(&device, &config);
 
         let brush = Brush::new(&device);
+        let texture_renderer = TextureRenderer::new(&device, wgpu::FilterMode::Linear);
 
         let input_controller = InputController::default();
+
+        let texture_1 = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: 2048,
+                height: 1024,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
 
         State {
             device,
@@ -67,24 +87,35 @@ impl<'a> State<'a> {
             surface,
             config,
             brush,
+            texture_renderer,
             input_controller,
+
+            texture_1,
         }
     }
 
     fn render(&mut self) {
         let output = self.surface.get_current_texture().unwrap();
-        // let output_view = output
-        //     .texture
-        //     .create_view(&wgpu::TextureViewDescriptor::default());
+        let output_view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.brush.draw(
-            &self.device,
-            &self.queue,
-            &output.texture,
-            [1., 1., 1.],
-            self.input_controller.get_mouse_pos().into(),
-            100.,
-        );
+        if self
+            .input_controller
+            .mouse_button_pressed(winit::event::MouseButton::Left)
+        {
+            self.brush.draw(
+                &self.device,
+                &self.queue,
+                &self.texture_1,
+                [1., 1., 1.],
+                self.input_controller.get_mouse_pos().into(),
+                10.,
+            );
+        }
+
+        self.texture_renderer
+            .render(&self.device, &self.queue, &self.texture_1, &output_view);
 
         output.present();
     }

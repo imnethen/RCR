@@ -2,6 +2,7 @@ mod brush;
 mod gi;
 mod inpututil;
 mod texturerenderer;
+mod jfa;
 
 use brush::Brush;
 use gi::GI;

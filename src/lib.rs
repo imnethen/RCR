@@ -1,10 +1,11 @@
 mod brush;
 mod gi;
 mod inpututil;
-mod texturerenderer;
 mod jfa;
+mod screenpass;
+mod texturerenderer;
 
-use brush::Brush;
+use brushtwo::Brush;
 use gi::GI;
 use texturerenderer::TextureRenderer;
 
@@ -163,7 +164,7 @@ pub async fn run() {
                     WindowEvent::RedrawRequested => {
                         state.render();
                         state.input_controller.init_frame();
-                        //state.window.request_redraw();
+                        // state.window.request_redraw();
                     }
                     WindowEvent::MouseInput {
                         device_id: _,

@@ -5,7 +5,7 @@ mod jfa;
 mod screenpass;
 mod texturerenderer;
 
-use brushtwo::Brush;
+use brush::Brush;
 use gi::GI;
 use texturerenderer::TextureRenderer;
 
@@ -121,11 +121,11 @@ impl<'a> State<'a> {
             );
         }
 
-        // self.texture_renderer
-        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
-
-        self.gi
+        self.texture_renderer
             .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+
+        // self.gi
+        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
 
         output.present();
     }

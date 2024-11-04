@@ -13,7 +13,8 @@ pub struct ScreenPass {
 impl ScreenPass {
     pub fn new(
         device: &wgpu::Device,
-        bind_group_layout_binding_types: Vec<Vec<wgpu::BindingType>>,
+        //bind_group_layout_binding_types: Vec<Vec<wgpu::BindingType>>,
+        bind_group_layout_binding_types: &[&[wgpu::BindingType]],
         shader_module: wgpu::ShaderModule,
     ) -> Self {
         let bind_group_layouts: Box<[wgpu::BindGroupLayout]> = {
@@ -153,7 +154,6 @@ impl ScreenPass {
 pub struct ScreenPassRenderDescriptor<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
-    pub out_texture: &'a wgpu::Texture,
     pub fragment_targets: &'a [Option<wgpu::ColorTargetState>],
     pub bind_group_resources: &'a [&'a [wgpu::BindingResource<'a>]],
     pub color_attachments: &'a [Option<wgpu::RenderPassColorAttachment<'a>>],

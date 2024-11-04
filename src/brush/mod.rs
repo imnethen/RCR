@@ -25,7 +25,7 @@ impl Brush {
             mapped_at_creation: false,
         });
 
-        let bind_group_layout_binding_types = vec![vec![wgpu::BindingType::Buffer {
+        let bind_group_layout_binding_types: &[&[_]] = &[&[wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
             min_binding_size: None,
@@ -61,7 +61,6 @@ impl Brush {
             .render(&screenpass::ScreenPassRenderDescriptor {
                 device: &device,
                 queue: &queue,
-                out_texture,
                 fragment_targets: &[Some(wgpu::ColorTargetState {
                     format: out_texture.format(),
                     blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),

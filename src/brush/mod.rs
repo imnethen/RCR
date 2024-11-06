@@ -25,11 +25,11 @@ impl Brush {
             mapped_at_creation: false,
         });
 
-        let bind_group_layout_binding_types: &[&[_]] = &[&[wgpu::BindingType::Buffer {
+        let bind_group_layout_binding_types = &[wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
             min_binding_size: None,
-        }]];
+        }];
         let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
         let screenpass = ScreenPass::new(device, bind_group_layout_binding_types, shader_module);
@@ -66,7 +66,7 @@ impl Brush {
                     blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
-                bind_group_resources: &[&[self.uniform_buffer.as_entire_binding()]],
+                bind_group_resources: &[self.uniform_buffer.as_entire_binding()],
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &out_texture.create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,

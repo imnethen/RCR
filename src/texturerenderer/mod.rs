@@ -21,14 +21,14 @@ impl TextureRenderer {
             ..Default::default()
         });
 
-        let bind_group_layout_binding_types: &[&[_]] = &[&[
+        let bind_group_layout_binding_types: &[_] = &[
             wgpu::BindingType::Texture {
                 sample_type: wgpu::TextureSampleType::Float { filterable: true },
                 view_dimension: wgpu::TextureViewDimension::D2,
                 multisampled: false,
             },
             wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-        ]];
+        ];
         let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
         let screenpass = ScreenPass::new(device, bind_group_layout_binding_types, shader_module);
@@ -55,12 +55,12 @@ impl TextureRenderer {
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
-                bind_group_resources: &[&[
+                bind_group_resources: &[
                     wgpu::BindingResource::TextureView(
                         &in_texture.create_view(&wgpu::TextureViewDescriptor::default()),
                     ),
                     wgpu::BindingResource::Sampler(&self.sampler),
-                ]],
+                ],
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &out_texture.create_view(&wgpu::TextureViewDescriptor::default()),
                     ops: wgpu::Operations::default(),

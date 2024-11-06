@@ -6,56 +6,43 @@ use egui_wgpu::wgpu;
 /// that struct is the one that holds data like buffers and textures, not this one
 pub struct ScreenPass {
     shader_module: wgpu::ShaderModule,
-    bind_group_layouts: Box<[wgpu::BindGroupLayout]>,
+    bind_group_layout: wgpu::BindGroupLayout,
     pipeline_layout: wgpu::PipelineLayout,
 }
 
 impl ScreenPass {
     pub fn new(
         device: &wgpu::Device,
-        //bind_group_layout_binding_types: Vec<Vec<wgpu::BindingType>>,
-        bind_group_layout_binding_types: &[&[wgpu::BindingType]],
+        bind_group_layout_binding_types: &[wgpu::BindingType],
         shader_module: wgpu::ShaderModule,
     ) -> Self {
-        let bind_group_layouts: Box<[wgpu::BindGroupLayout]> = {
-            let all_entries: Vec<Vec<wgpu::BindGroupLayoutEntry>> = bind_group_layout_binding_types
+        let bind_group_layout: wgpu::BindGroupLayout = {
+            let entries = bind_group_layout_binding_types
                 .iter()
-                .map(|tys| {
-                    tys.iter()
-                        .enumerate()
-                        .map(|(i, ty)| wgpu::BindGroupLayoutEntry {
-                            binding: i as u32,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: *ty,
-                            count: None,
-                        })
-                        .collect()
+                .enumerate()
+                .map(|(i, ty)| wgpu::BindGroupLayoutEntry {
+                    binding: i as u32,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: *ty,
+                    count: None,
                 })
-                .collect();
+                .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
 
-            all_entries
-                .iter()
-                .map(|entries| {
-                    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                        label: Some("a screenpass bind group layout"),
-                        entries,
-                    })
-                })
-                .collect()
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("a screenpass bind group layout"),
+                entries: entries.as_slice(),
+            })
         };
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("a screenpass pipeline layout"),
-            bind_group_layouts: bind_group_layouts
-                .iter()
-                .collect::<Box<[&wgpu::BindGroupLayout]>>()
-                .as_ref(),
+            bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
 
         Self {
             shader_module,
-            bind_group_layouts,
+            bind_group_layout,
             pipeline_layout,
         }
     }
@@ -64,28 +51,21 @@ impl ScreenPass {
         &self,
         device: &wgpu::Device,
         // must be in the same order as bind group layouts
-        //resources: Vec<Vec<wgpu::BindingResource>>,
-        resources: &[&[wgpu::BindingResource]],
-    ) -> Box<[wgpu::BindGroup]> {
-        resources
-            .iter()
-            .enumerate()
-            .map(|(bgi, res)| {
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("a screenpass bind group"),
-                    layout: &self.bind_group_layouts[bgi],
-                    entries: res
-                        .iter()
-                        .enumerate()
-                        .map(|(binding, resource)| wgpu::BindGroupEntry {
-                            binding: binding as u32,
-                            resource: resource.clone(),
-                        })
-                        .collect::<Vec<_>>()
-                        .as_ref(),
+        resources: &[wgpu::BindingResource],
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("a screenpass bind group"),
+            layout: &self.bind_group_layout,
+            entries: resources
+                .iter()
+                .enumerate()
+                .map(|(binding, resource)| wgpu::BindGroupEntry {
+                    binding: binding as u32,
+                    resource: resource.clone(),
                 })
-            })
-            .collect()
+                .collect::<Vec<_>>()
+                .as_ref(),
+        })
     }
 
     fn create_pipeline(
@@ -125,7 +105,7 @@ impl ScreenPass {
 
     pub fn render(&self, desc: &ScreenPassRenderDescriptor) {
         let render_pipeline = self.create_pipeline(desc.device, desc.fragment_targets);
-        let bind_groups = self.create_bind_groups(desc.device, desc.bind_group_resources);
+        let bind_group = self.create_bind_groups(desc.device, desc.bind_group_resources);
 
         let mut encoder = desc
             .device
@@ -139,10 +119,7 @@ impl ScreenPass {
             });
 
             render_pass.set_pipeline(&render_pipeline);
-            bind_groups
-                .iter()
-                .enumerate()
-                .for_each(|(i, bg)| render_pass.set_bind_group(i as u32, bg, &[]));
+            render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..4, 0..1);
         }
 
@@ -155,6 +132,6 @@ pub struct ScreenPassRenderDescriptor<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
     pub fragment_targets: &'a [Option<wgpu::ColorTargetState>],
-    pub bind_group_resources: &'a [&'a [wgpu::BindingResource<'a>]],
+    pub bind_group_resources: &'a [wgpu::BindingResource<'a>],
     pub color_attachments: &'a [Option<wgpu::RenderPassColorAttachment<'a>>],
 }

@@ -7,6 +7,7 @@ mod texturerenderer;
 
 use brush::Brush;
 use gi::GI;
+use jfa::JFA;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -27,6 +28,7 @@ struct State<'a> {
     brush: Brush,
     texture_renderer: TextureRenderer,
     gi: GI,
+    temp_jfa: JFA,
 
     in_texture: wgpu::Texture,
 }
@@ -59,14 +61,14 @@ impl<'a> State<'a> {
             .await
             .unwrap();
 
-        let mut config = surface
+        let config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap();
-        config.format = wgpu::TextureFormat::Rgba8UnormSrgb;
         surface.configure(&device, &config);
 
-        let brush = Brush::new(&device);
-        let texture_renderer = TextureRenderer::new(&device, wgpu::FilterMode::Linear);
+        let brush = Brush::new(&device, wgpu::TextureFormat::Rgba8Unorm);
+        let texture_renderer =
+            TextureRenderer::new(&device, wgpu::FilterMode::Linear, config.format);
         let gi = GI::new(&device);
 
         let input_controller = InputController::default();
@@ -86,6 +88,8 @@ impl<'a> State<'a> {
             view_formats: &[],
         });
 
+        let temp_jfa = JFA::new(&device, (size.width, size.height), config.format);
+
         State {
             device,
             queue,
@@ -97,6 +101,8 @@ impl<'a> State<'a> {
             brush,
             texture_renderer,
             gi,
+
+            temp_jfa,
 
             input_controller,
 
@@ -121,8 +127,11 @@ impl<'a> State<'a> {
             );
         }
 
-        self.texture_renderer
+        self.temp_jfa
             .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+
+        // self.texture_renderer
+        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
 
         // self.gi
         //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
@@ -162,9 +171,11 @@ pub async fn run() {
                     }
                     WindowEvent::CloseRequested => target.exit(),
                     WindowEvent::RedrawRequested => {
+                        let start = std::time::Instant::now();
                         state.render();
+                        println!("frame took {:?}", std::time::Instant::now() - start);
                         state.input_controller.init_frame();
-                        // state.window.request_redraw();
+                        state.window.request_redraw();
                     }
                     WindowEvent::MouseInput {
                         device_id: _,

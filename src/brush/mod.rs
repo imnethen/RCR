@@ -11,13 +11,14 @@ struct RawUniformData {
     pos: [f32; 2],
 }
 
+/// cannot be used for different texture formats
 pub struct Brush {
     screenpass: ScreenPass,
     uniform_buffer: wgpu::Buffer,
 }
 
 impl Brush {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Brush uniform buffer"),
             size: std::mem::size_of::<RawUniformData>() as u64,
@@ -32,7 +33,17 @@ impl Brush {
         }];
         let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
-        let screenpass = ScreenPass::new(device, bind_group_layout_binding_types, shader_module);
+        let screenpass = ScreenPass::new(
+            device,
+            Some("brush"),
+            bind_group_layout_binding_types,
+            shader_module,
+            &[Some(wgpu::ColorTargetState {
+                format: texture_format,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        );
 
         Self {
             screenpass,
@@ -61,11 +72,6 @@ impl Brush {
             .render(&screenpass::ScreenPassRenderDescriptor {
                 device: &device,
                 queue: &queue,
-                fragment_targets: &[Some(wgpu::ColorTargetState {
-                    format: out_texture.format(),
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
                 bind_group_resources: &[self.uniform_buffer.as_entire_binding()],
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &out_texture.create_view(&wgpu::TextureViewDescriptor::default()),

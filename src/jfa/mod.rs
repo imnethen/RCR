@@ -1,325 +1,219 @@
-// use egui_wgpu::wgpu;
+use crate::screenpass::{self, ScreenPass};
+use egui_wgpu::wgpu;
 
-// struct PreparePass {
-//     shader_module: wgpu::ShaderModule,
-//     bind_group_layout: wgpu::BindGroupLayout,
-//     pipeline_layout: wgpu::PipelineLayout,
-//     sampler: wgpu::Sampler,
-// }
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+struct MainPassRawUniformData {
+    step: u32,
+}
 
-// impl PreparePass {
-//     fn new(device: &wgpu::Device) -> Self {
-//         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-//             label: Some("jfa prepare sampler"),
-//             mag_filter: wgpu::FilterMode::Nearest,
-//             min_filter: wgpu::FilterMode::Nearest,
-//             ..Default::default()
-//         });
+pub struct JFA {
+    prepare_pass: ScreenPass,
 
-//         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-//             label: Some("jfa prepare pass bind group layout"),
-//             entries: &[
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 0,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Texture {
-//                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-//                         view_dimension: wgpu::TextureViewDimension::D2,
-//                         multisampled: false,
-//                     },
-//                     count: None,
-//                 },
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 1,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-//                     count: None,
-//                 },
-//             ],
-//         });
+    temp_textures: [wgpu::Texture; 2],
+    main_uniform_buffer: wgpu::Buffer,
+    main_pass: ScreenPass,
 
-//         let shader_module = device.create_shader_module(wgpu::include_wgsl!("prepare_pass.wgsl"));
+    final_pass: ScreenPass,
+}
 
-//         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-//             label: Some("jfa prepare pass pipeline layout"),
-//             bind_group_layouts: &[&bind_group_layout],
-//             push_constant_ranges: &[],
-//         });
+impl JFA {
+    fn create_temp_textures(device: &wgpu::Device, window_size: (u32, u32)) -> [wgpu::Texture; 2] {
+        let ct = || {
+            device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("a jfa temp texture"),
+                size: wgpu::Extent3d {
+                    width: window_size.0,
+                    height: window_size.1,
+                    depth_or_array_layers: 1,
+                },
+                format: wgpu::TextureFormat::Rg16Sint,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                view_formats: &[],
+            })
+        };
 
-//         PreparePass {
-//             bind_group_layout,
-//             pipeline_layout,
-//             shader_module,
-//             sampler,
-//         }
-//     }
+        [ct(), ct()]
+    }
 
-//     fn create_bind_group(
-//         &self,
-//         device: &wgpu::Device,
-//         texture_view: &wgpu::TextureView,
-//     ) -> wgpu::BindGroup {
-//         device.create_bind_group(&wgpu::BindGroupDescriptor {
-//             label: Some("jfa prepare pass bind group"),
-//             layout: &self.bind_group_layout,
-//             entries: &[
-//                 wgpu::BindGroupEntry {
-//                     binding: 0,
-//                     resource: wgpu::BindingResource::TextureView(texture_view),
-//                 },
-//                 wgpu::BindGroupEntry {
-//                     binding: 1,
-//                     resource: wgpu::BindingResource::Sampler(&self.sampler),
-//                 },
-//             ],
-//         })
-//     }
+    pub fn new(
+        device: &wgpu::Device,
+        window_size: (u32, u32),
+        out_texture_format: wgpu::TextureFormat,
+    ) -> Self {
+        let prepare_shader_module =
+            device.create_shader_module(wgpu::include_wgsl!("prepare.wgsl"));
+        let main_shader_module = device.create_shader_module(wgpu::include_wgsl!("main.wgsl"));
+        let final_shader_module = device.create_shader_module(wgpu::include_wgsl!("final.wgsl"));
 
-//     fn create_pipeline(
-//         &self,
-//         device: &wgpu::Device,
-//         texture_format: wgpu::TextureFormat,
-//     ) -> wgpu::RenderPipeline {
-//         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-//             label: Some("jfa prepare pass render pipeline"),
-//             layout: Some(&self.pipeline_layout),
-//             vertex: wgpu::VertexState {
-//                 module: &self.shader_module,
-//                 entry_point: "vs_main",
-//                 buffers: &[],
-//                 compilation_options: Default::default(),
-//             },
-//             fragment: Some(wgpu::FragmentState {
-//                 module: &self.shader_module,
-//                 entry_point: "fs_main",
-//                 compilation_options: Default::default(),
-//                 targets: &[Some(wgpu::ColorTargetState {
-//                     format: texture_format,
-//                     blend: None,
-//                     write_mask: wgpu::ColorWrites::ALL,
-//                 })],
-//             }),
-//             primitive: wgpu::PrimitiveState {
-//                 topology: wgpu::PrimitiveTopology::TriangleStrip,
-//                 strip_index_format: None,
-//                 front_face: wgpu::FrontFace::Ccw,
-//                 cull_mode: None,
-//                 unclipped_depth: false,
-//                 polygon_mode: wgpu::PolygonMode::Fill,
-//                 conservative: false,
-//             },
-//             depth_stencil: None,
-//             multiview: None,
-//             multisample: Default::default(),
-//         })
-//     }
+        let prepare_bind_group_binding_types = &[wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        }];
 
-//     fn render(
-//         &self,
-//         device: &wgpu::Device,
-//         in_texture: &wgpu::Texture,
-//         out_texture: &wgpu::Texture,
-//     ) {
-//         let render_pipeline = self.create_render_pipeline(device, out_texture.format());
-//         let bind_group = self.create_bind_group(
-//             &device,
-//             &in_texture.create_view(&wgpu::TextureViewDescriptor::default()),
-//         );
-//         let out_view = in_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let prepare_pass = ScreenPass::new(
+            device,
+            Some("JFA prepare pass"),
+            prepare_bind_group_binding_types,
+            prepare_shader_module,
+            &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rg16Sint,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        );
 
-//         let mut encoder = device.create_command_encoder(&Default::default());
+        let main_bind_group_binding_types = &[
+            wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Sint,
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+        ];
 
-//         {
-//             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-//                 label: Some("jfa prepare render pass"),
-//                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-//                     view: &out_view,
-//                     ops: wgpu::Operations {
-//                         load: wgpu::LoadOp::Load,
-//                         store: wgpu::StoreOp::Store,
-//                     },
-//                     resolve_target: None,
-//                 })],
-//                 ..Default::default()
-//             });
+        let main_pass = ScreenPass::new(
+            device,
+            Some("JFA main pass"),
+            main_bind_group_binding_types,
+            main_shader_module,
+            &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rg16Sint,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        );
 
-//             render_pass.set_pipeline(&render_pipeline);
-//             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-//             render_pass.draw(0..4, 0..1);
-//         }
+        let final_bind_group_binding_types = &[wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Sint,
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        }];
 
-//         queue.submit(Some(encoder.finish()));
-//     }
-// }
+        let final_pass = ScreenPass::new(
+            device,
+            Some("JFA final pass"),
+            final_bind_group_binding_types,
+            final_shader_module,
+            &[Some(wgpu::ColorTargetState {
+                format: out_texture_format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        );
 
-// // TODO NOT IMPLEMENTED
-// struct FinalPass {
-//     shader_module: wgpu::ShaderModule,
-//     bind_group_layout: wgpu::BindGroupLayout,
-//     pipeline_layout: wgpu::PipelineLayout,
-// }
+        let main_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("jfa main pass uniform buffer"),
+            size: std::mem::size_of::<MainPassRawUniformData>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
-// impl FinalPass {
-//     fn new(device: &wgpu::Device) -> Self {
-//         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-//             label: Some("jfa prepare sampler"),
-//             mag_filter: wgpu::FilterMode::Nearest,
-//             min_filter: wgpu::FilterMode::Nearest,
-//             ..Default::default()
-//         });
+        let temp_textures = JFA::create_temp_textures(device, window_size);
 
-//         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-//             label: Some("jfa prepare pass bind group layout"),
-//             entries: &[
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 0,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Texture {
-//                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-//                         view_dimension: wgpu::TextureViewDimension::D2,
-//                         multisampled: false,
-//                     },
-//                     count: None,
-//                 },
-//                 wgpu::BindGroupLayoutEntry {
-//                     binding: 1,
-//                     visibility: wgpu::ShaderStages::FRAGMENT,
-//                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-//                     count: None,
-//                 },
-//             ],
-//         });
+        JFA {
+            prepare_pass,
 
-//         let shader_module = device.create_shader_module(wgpu::include_wgsl!("prepare_pass.wgsl"));
+            temp_textures,
+            main_uniform_buffer,
+            main_pass,
 
-//         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-//             label: Some("jfa prepare pass pipeline layout"),
-//             bind_group_layouts: &[&bind_group_layout],
-//             push_constant_ranges: &[],
-//         });
+            final_pass,
+        }
+    }
 
-//         PreparePass {
-//             bind_group_layout,
-//             pipeline_layout,
-//             shader_module,
-//             sampler,
-//         }
-//     }
+    pub fn resize(&mut self, device: &wgpu::Device, new_window_size: (u32, u32)) {
+        self.temp_textures = JFA::create_temp_textures(device, new_window_size);
+    }
 
-//     fn create_bind_group(
-//         &self,
-//         device: &wgpu::Device,
-//         texture_view: &wgpu::TextureView,
-//     ) -> wgpu::BindGroup {
-//         device.create_bind_group(&wgpu::BindGroupDescriptor {
-//             label: Some("jfa prepare pass bind group"),
-//             layout: &self.bind_group_layout,
-//             entries: &[
-//                 wgpu::BindGroupEntry {
-//                     binding: 0,
-//                     resource: wgpu::BindingResource::TextureView(texture_view),
-//                 },
-//                 wgpu::BindGroupEntry {
-//                     binding: 1,
-//                     resource: wgpu::BindingResource::Sampler(&self.sampler),
-//                 },
-//             ],
-//         })
-//     }
+    pub fn render(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        in_texture: &wgpu::Texture,
+        out_texture: &wgpu::Texture,
+    ) {
+        self.prepare_pass
+            .render(&screenpass::ScreenPassRenderDescriptor {
+                device,
+                queue,
+                bind_group_resources: &[wgpu::BindingResource::TextureView(
+                    &in_texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                )],
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.temp_textures[0]
+                        .create_view(&wgpu::TextureViewDescriptor::default()),
+                    resolve_target: None,
+                    ops: wgpu::Operations::default(),
+                })],
+            });
 
-//     fn create_pipeline(
-//         &self,
-//         device: &wgpu::Device,
-//         texture_format: wgpu::TextureFormat,
-//     ) -> wgpu::RenderPipeline {
-//         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-//             label: Some("jfa prepare pass render pipeline"),
-//             layout: Some(&self.pipeline_layout),
-//             vertex: wgpu::VertexState {
-//                 module: &self.shader_module,
-//                 entry_point: "vs_main",
-//                 buffers: &[],
-//                 compilation_options: Default::default(),
-//             },
-//             fragment: Some(wgpu::FragmentState {
-//                 module: &self.shader_module,
-//                 entry_point: "fs_main",
-//                 compilation_options: Default::default(),
-//                 targets: &[Some(wgpu::ColorTargetState {
-//                     format: texture_format,
-//                     blend: None,
-//                     write_mask: wgpu::ColorWrites::ALL,
-//                 })],
-//             }),
-//             primitive: wgpu::PrimitiveState {
-//                 topology: wgpu::PrimitiveTopology::TriangleStrip,
-//                 strip_index_format: None,
-//                 front_face: wgpu::FrontFace::Ccw,
-//                 cull_mode: None,
-//                 unclipped_depth: false,
-//                 polygon_mode: wgpu::PolygonMode::Fill,
-//                 conservative: false,
-//             },
-//             depth_stencil: None,
-//             multiview: None,
-//             multisample: Default::default(),
-//         })
-//     }
+        let mut stepsize: u32 = {
+            let w = in_texture.size().width as f32;
+            let h = in_texture.size().height as f32;
 
-//     fn render(
-//         &self,
-//         device: &wgpu::Device,
-//         in_texture: &wgpu::Texture,
-//         out_texture: &wgpu::Texture,
-//     ) {
-//         let render_pipeline = self.create_render_pipeline(device, out_texture.format());
-//         let bind_group = self.create_bind_group(
-//             &device,
-//             &in_texture.create_view(&wgpu::TextureViewDescriptor::default()),
-//         );
-//         let out_view = in_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            f32::sqrt(w * w + h * h) as u32
+        };
 
-//         let mut encoder = device.create_command_encoder(&Default::default());
+        for i in 1.. {
+            let uniform_data = MainPassRawUniformData { step: stepsize };
+            queue.write_buffer(
+                &self.main_uniform_buffer,
+                0,
+                bytemuck::bytes_of(&uniform_data),
+            );
 
-//         {
-//             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-//                 label: Some("jfa prepare render pass"),
-//                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-//                     view: &out_view,
-//                     ops: wgpu::Operations {
-//                         load: wgpu::LoadOp::Load,
-//                         store: wgpu::StoreOp::Store,
-//                     },
-//                     resolve_target: None,
-//                 })],
-//                 ..Default::default()
-//             });
+            self.main_pass
+                .render(&screenpass::ScreenPassRenderDescriptor {
+                    device,
+                    queue,
+                    bind_group_resources: &[
+                        self.main_uniform_buffer.as_entire_binding(),
+                        wgpu::BindingResource::TextureView(
+                            &self.temp_textures[1 - (i % 2)]
+                                .create_view(&wgpu::TextureViewDescriptor::default()),
+                        ),
+                    ],
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &self.temp_textures[i % 2]
+                            .create_view(&wgpu::TextureViewDescriptor::default()),
+                        resolve_target: None,
+                        ops: wgpu::Operations::default(),
+                    })],
+                });
 
-//             render_pass.set_pipeline(&render_pipeline);
-//             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-//             render_pass.draw(0..4, 0..1);
-//         }
+            stepsize /= 2;
+            // TODO: make a nonhacky way to end on temp_textures[0]
+            if stepsize == 0 {
+                if i % 2 == 1 {
+                    stepsize = 1;
+                } else {
+                    break;
+                }
+            }
+        }
 
-//         queue.submit(Some(encoder.finish()));
-//     }
-// }
-
-// #[repr(C)]
-// #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
-// struct MainPassRawUniformData {
-//     step: u32,
-// }
-
-// struct MainPass {
-//     shader_module: wgpu::ShaderModule,
-//     uniform_buffer: wgpu::Buffer,
-//     wasp_bind_group_layout: wgpu::BindGroupLayout,
-// }
-
-// pub struct JFA {
-//     prepare_pass: PreparePass,
-//     main_pass: MainPass,
-//     final_pass: FinalPass,
-
-//     temp_textures: [wgpu::Texture; 2],
-// }
+        self.final_pass
+            .render(&screenpass::ScreenPassRenderDescriptor {
+                device,
+                queue,
+                bind_group_resources: &[wgpu::BindingResource::TextureView(
+                    &self.temp_textures[0].create_view(&wgpu::TextureViewDescriptor::default()),
+                )],
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &out_texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                    resolve_target: None,
+                    ops: wgpu::Operations::default(),
+                })],
+            });
+    }
+}

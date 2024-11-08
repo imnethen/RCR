@@ -13,7 +13,11 @@ pub struct TextureRenderer {
 }
 
 impl TextureRenderer {
-    pub fn new(device: &wgpu::Device, filter_mode: wgpu::FilterMode) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        filter_mode: wgpu::FilterMode,
+        out_texture_format: wgpu::TextureFormat,
+    ) -> Self {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("texture renderer sampler"),
             mag_filter: filter_mode,
@@ -31,7 +35,17 @@ impl TextureRenderer {
         ];
         let shader_module = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
-        let screenpass = ScreenPass::new(device, bind_group_layout_binding_types, shader_module);
+        let screenpass = ScreenPass::new(
+            device,
+            Some("texture renderer"),
+            bind_group_layout_binding_types,
+            shader_module,
+            &[Some(wgpu::ColorTargetState {
+                format: out_texture_format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        );
 
         TextureRenderer {
             sampler,
@@ -50,11 +64,6 @@ impl TextureRenderer {
             .render(&screenpass::ScreenPassRenderDescriptor {
                 device,
                 queue,
-                fragment_targets: &[Some(wgpu::ColorTargetState {
-                    format: out_texture.format(),
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
                 bind_group_resources: &[
                     wgpu::BindingResource::TextureView(
                         &in_texture.create_view(&wgpu::TextureViewDescriptor::default()),

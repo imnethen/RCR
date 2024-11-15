@@ -17,15 +17,17 @@ fn vs_main(@builtin(vertex_index) vid: u32) -> VertexOutput {
 }
 
 @group(0) @binding(0)
-var in_texture: texture_2d<i32>;
+var in_texture: texture_2d<f32>;
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4f {
+fn fs_main(in: VertexOutput) -> @location(0) vec2i {
+    // in_texture is the same size as the jfa temp textures because thats how the temp textures are created
     let pixel_pos = vec2u(in.tex_coord * vec2f(textureDimensions(in_texture)));
-    let closest_pos = textureLoad(in_texture, pixel_pos, 0).xy;
-    var dist = 1e9;
-    if closest_pos.x != -1 {
-        dist = distance(vec2f(closest_pos), vec2f(pixel_pos));
+
+    let pixel_color = textureLoad(in_texture, pixel_pos, 0);
+    if (pixel_color.a < 0.001) {
+        return vec2i(-1);
+    } else {
+        return vec2i(pixel_pos);
     }
-    return vec4f(dist, vec3f(0.));
 }

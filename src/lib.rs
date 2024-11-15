@@ -2,12 +2,13 @@ mod brush;
 mod gi;
 mod inpututil;
 mod jfa;
+mod jfa2;
 mod screenpass;
 mod texturerenderer;
 
 use brush::Brush;
 use gi::GI;
-use jfa::JFA;
+use jfa2::JFA;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -53,8 +54,11 @@ impl<'a> State<'a> {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
+                    required_features: wgpu::Features::PUSH_CONSTANTS,
+                    required_limits: wgpu::Limits {
+                        max_push_constant_size: 4,
+                        ..Default::default()
+                    },
                 },
                 None,
             )
@@ -74,7 +78,7 @@ impl<'a> State<'a> {
         let input_controller = InputController::default();
 
         let in_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
+            label: Some("in texture"),
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
             mip_level_count: 1,
@@ -127,8 +131,10 @@ impl<'a> State<'a> {
             );
         }
 
+        let prejfa = std::time::Instant::now();
         self.temp_jfa
             .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+        println!("jfa took {:?}", std::time::Instant::now() - prejfa);
 
         // self.texture_renderer
         //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);

@@ -1,19 +1,20 @@
+const nonexistent_coord: f32 = -2e9;
+
 var<push_constant> stepsize: u32;
 
 @group(0) @binding(0)
-var in_texture: texture_2d<i32>;
+var in_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var out_texture: texture_storage_2d<rg32sint, write>;
+var out_texture: texture_storage_2d<rg32float, write>;
 
 @compute
 @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3u) {
     let in_dims = textureDimensions(in_texture);
-    // let pixel_pos = vec2u(in.tex_coord * vec2f(in_dims));
     let pixel_pos = id.xy;
 
-    var best_dist: f32 = 1e9;
-    var best_pos: vec2i = vec2i(-1);
+    var best_dist: f32 = 2e9;
+    var best_pos: vec2f = vec2f(nonexistent_coord);
 
     for (var x: i32 = -1; x <= 1; x += 1) {
         for (var y: i32 = -1; y <= 1; y += 1) {
@@ -21,12 +22,10 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
             if out_of_bounds(pos, in_dims) {
                 continue;
             }
-            let closest = textureLoad(in_texture, pos, 0).xy;
-            if closest.x == -1 {
-                continue;
-            }
+            let closest: vec2f = textureLoad(in_texture, pos, 0).xy;
 
-            let dist = distance(vec2f(pixel_pos), vec2f(closest));
+            let diff = closest - vec2f(pixel_pos);
+            let dist = (diff.x * diff.x) + (diff.y * diff.y);
             if dist < best_dist {
                 best_dist = dist;
                 best_pos = closest;
@@ -34,7 +33,7 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
         }
     }
 
-    textureStore(out_texture, pixel_pos, vec4i(best_pos, 0, 0));
+    textureStore(out_texture, pixel_pos, vec4f(best_pos, 0., 0.));
 }
 
 fn out_of_bounds(pos: vec2i, dims: vec2u) -> bool {

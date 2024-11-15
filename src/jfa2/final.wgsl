@@ -16,16 +16,18 @@ fn vs_main(@builtin(vertex_index) vid: u32) -> VertexOutput {
     return VertexOutput(vec4f(pos, 0, 1), poses[vid]);
 }
 
+const nonexistent_coord: f32 = -2e9;
+
 @group(0) @binding(0)
-var in_texture: texture_2d<i32>;
+var in_texture: texture_2d<f32>;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     let pixel_pos = vec2u(in.tex_coord * vec2f(textureDimensions(in_texture)));
     let closest_pos = textureLoad(in_texture, pixel_pos, 0).xy;
     var dist = 1e9;
-    if closest_pos.x != -1 {
-        dist = distance(vec2f(closest_pos), vec2f(pixel_pos));
+    if closest_pos.x != nonexistent_coord {
+        dist = distance(closest_pos, vec2f(pixel_pos));
     }
     return vec4f(dist, vec3f(0.));
 }

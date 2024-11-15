@@ -12,14 +12,12 @@ pub struct JFA {
 }
 
 impl JFA {
-    const TEMP_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg32Sint;
+    const TEMP_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg32Float;
 
     fn create_temp_textures(device: &wgpu::Device, window_size: (u32, u32)) -> [wgpu::Texture; 2] {
-        let mut num = 0;
-        let mut ct = || {
-            num += 1;
+        let ct = || {
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some(&format!("jfa temp texture {}", num)),
+                label: Some("a jfa temp texture"),
                 size: wgpu::Extent3d {
                     width: window_size.0,
                     height: window_size.1,
@@ -28,8 +26,7 @@ impl JFA {
                 format: JFA::TEMP_TEXTURE_FORMAT,
                 usage: wgpu::TextureUsages::STORAGE_BINDING
                     | wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::COPY_DST,
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
@@ -57,7 +54,7 @@ impl JFA {
         let final_shader_module = device.create_shader_module(wgpu::include_wgsl!("final.wgsl"));
 
         let prepare_bind_group_binding_types = &[wgpu::BindingType::Texture {
-            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
             view_dimension: wgpu::TextureViewDimension::D2,
             multisampled: false,
         }];
@@ -82,7 +79,7 @@ impl JFA {
                         binding: 0,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Sint,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -150,7 +147,7 @@ impl JFA {
         });
 
         let final_bind_group_binding_types = &[wgpu::BindingType::Texture {
-            sample_type: wgpu::TextureSampleType::Sint,
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
             view_dimension: wgpu::TextureViewDimension::D2,
             multisampled: false,
         }];

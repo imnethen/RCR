@@ -1,50 +1,31 @@
-struct VertexOutput {
-    @builtin(position) clip_position: vec4f,
-    @location(0) tex_coord: vec2f,
-};
+const nonexistent_coord: f32 = -2e9;
 
-@vertex
-fn vs_main(@builtin(vertex_index) vid: u32) -> VertexOutput {
-    var poses = array(
-        vec2f(0., 1.),
-        vec2f(1., 1.),
-        vec2f(0., 0.),
-        vec2f(1., 0.),
-    );
-
-    let pos = vec2f(poses[vid].x * 2. - 1., -poses[vid].y * 2. + 1.);
-    return VertexOutput(vec4f(pos, 0, 1), poses[vid]);
-}
-
-struct uniform_data {
-    stepsize: u32
-}
+var<push_constant> stepsize: u32;
 
 @group(0) @binding(0)
-var<uniform> uniforms: uniform_data;
+var in_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var in_texture: texture_2d<i32>;
+var out_texture: texture_storage_2d<rg32float, write>;
 
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec2i {
+@compute
+@workgroup_size(16, 16)
+fn main(@builtin(global_invocation_id) id: vec3u) {
     let in_dims = textureDimensions(in_texture);
-    let pixel_pos = vec2u(in.tex_coord * vec2f(in_dims));
+    let pixel_pos = id.xy;
 
-    var best_dist: f32 = 1e9;
-    var best_pos: vec2i = vec2i(-1);
+    var best_dist: f32 = 2e9;
+    var best_pos: vec2f = vec2f(nonexistent_coord);
 
     for (var x: i32 = -1; x <= 1; x += 1) {
         for (var y: i32 = -1; y <= 1; y += 1) {
-            let pos = vec2i(pixel_pos) + i32(uniforms.stepsize) * vec2i(x, y);
+            let pos = vec2i(pixel_pos) + i32(stepsize) * vec2i(x, y);
             if out_of_bounds(pos, in_dims) {
                 continue;
             }
-            let closest = textureLoad(in_texture, pos, 0).xy;
-            if closest.x == -1 {
-                continue;
-            }
+            let closest: vec2f = textureLoad(in_texture, pos, 0).xy;
 
-            let dist = distance(vec2f(pixel_pos), vec2f(closest));
+            let diff = closest - vec2f(pixel_pos);
+            let dist = (diff.x * diff.x) + (diff.y * diff.y);
             if dist < best_dist {
                 best_dist = dist;
                 best_pos = closest;
@@ -52,7 +33,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec2i {
         }
     }
 
-    return best_pos;
+    textureStore(out_texture, pixel_pos, vec4f(best_pos, 0., 0.));
 }
 
 fn out_of_bounds(pos: vec2i, dims: vec2u) -> bool {

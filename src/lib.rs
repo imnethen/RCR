@@ -131,10 +131,8 @@ impl<'a> State<'a> {
             );
         }
 
-        let prejfa = std::time::Instant::now();
         self.temp_jfa
             .render(&self.device, &self.queue, &self.in_texture, &output.texture);
-        println!("jfa took {:?}", std::time::Instant::now() - prejfa);
 
         // self.texture_renderer
         //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
@@ -179,7 +177,7 @@ pub async fn run() {
                     WindowEvent::RedrawRequested => {
                         let start = std::time::Instant::now();
                         state.render();
-                        println!("frame took {:?}", std::time::Instant::now() - start);
+                        println!("{:?}", std::time::Instant::now() - start);
                         state.input_controller.init_frame();
                         state.window.request_redraw();
                     }

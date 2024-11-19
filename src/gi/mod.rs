@@ -22,8 +22,9 @@ pub struct GI {
 }
 
 impl GI {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let default_renderer = raymarcher::Raymarcher::new(&device);
+    pub fn new(device: &wgpu::Device, window_size: (u32, u32)) -> Self {
+        let default_renderer =
+            raymarcher::Raymarcher::new(&device, window_size, wgpu::TextureFormat::Rgba32Float);
         GI {
             renderers: vec![Box::new(default_renderer)],
             cur_renderer: 0,

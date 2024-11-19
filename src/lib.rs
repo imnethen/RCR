@@ -1,14 +1,14 @@
 mod brush;
+mod egui_renderer;
 mod gi;
 mod inpututil;
 mod jfa;
-mod jfa2;
 mod screenpass;
 mod texturerenderer;
 
 use brush::Brush;
 use gi::GI;
-use jfa2::JFA;
+use jfa::JFA;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -32,6 +32,7 @@ struct State<'a> {
     temp_jfa: JFA,
 
     in_texture: wgpu::Texture,
+    out_texture: wgpu::Texture,
 }
 
 impl<'a> State<'a> {
@@ -54,7 +55,8 @@ impl<'a> State<'a> {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::PUSH_CONSTANTS,
+                    required_features: wgpu::Features::PUSH_CONSTANTS
+                        | wgpu::Features::FLOAT32_FILTERABLE,
                     required_limits: wgpu::Limits {
                         max_push_constant_size: 4,
                         ..Default::default()
@@ -73,7 +75,7 @@ impl<'a> State<'a> {
         let brush = Brush::new(&device, wgpu::TextureFormat::Rgba8Unorm);
         let texture_renderer =
             TextureRenderer::new(&device, wgpu::FilterMode::Linear, config.format);
-        let gi = GI::new(&device);
+        let gi = GI::new(&device, (size.width, size.height));
 
         let input_controller = InputController::default();
 
@@ -89,6 +91,23 @@ impl<'a> State<'a> {
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        let out_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("out texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba32Float,
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: size.width,
+                height: size.height,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING,
             view_formats: &[],
         });
 
@@ -111,6 +130,7 @@ impl<'a> State<'a> {
             input_controller,
 
             in_texture,
+            out_texture,
         }
     }
 
@@ -131,14 +151,25 @@ impl<'a> State<'a> {
             );
         }
 
-        self.temp_jfa
-            .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+        // self.temp_jfa
+        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
 
         // self.texture_renderer
         //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
 
-        // self.gi
-        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
+        self.gi.render(
+            &self.device,
+            &self.queue,
+            &self.in_texture,
+            &self.out_texture,
+        );
+
+        self.texture_renderer.render(
+            &self.device,
+            &self.queue,
+            &self.out_texture,
+            &output.texture,
+        );
 
         output.present();
     }

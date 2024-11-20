@@ -3,12 +3,14 @@ mod egui_renderer;
 mod gi;
 mod inpututil;
 mod jfa;
+mod scene;
 mod screenpass;
 mod texturerenderer;
 
 use brush::Brush;
 use egui_renderer::EguiRenderer;
 use gi::GI;
+use scene::Scene;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -26,12 +28,11 @@ struct State<'a> {
 
     input_controller: InputController,
 
-    brush: Brush,
     texture_renderer: TextureRenderer,
     gi: GI,
     egui_renderer: EguiRenderer,
 
-    in_texture: wgpu::Texture,
+    scene: Scene,
     out_texture: wgpu::Texture,
 }
 
@@ -72,7 +73,6 @@ impl<'a> State<'a> {
             .unwrap();
         surface.configure(&device, &config);
 
-        let brush = Brush::new(&device, wgpu::TextureFormat::Rgba8Unorm);
         let texture_renderer =
             TextureRenderer::new(&device, wgpu::FilterMode::Linear, config.format);
         let gi = GI::new(&device, (size.width, size.height));
@@ -80,20 +80,7 @@ impl<'a> State<'a> {
 
         let input_controller = InputController::default();
 
-        let in_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("in texture"),
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            mip_level_count: 1,
-            sample_count: 1,
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
+        let scene = Scene::new(&device, (size.width, size.height));
 
         let out_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("out texture"),
@@ -120,14 +107,13 @@ impl<'a> State<'a> {
             surface,
             config,
 
-            brush,
             texture_renderer,
             gi,
             egui_renderer,
 
             input_controller,
 
-            in_texture,
+            scene,
             out_texture,
         }
     }
@@ -145,12 +131,13 @@ impl<'a> State<'a> {
             |ctx| {
                 ctx.style_mut(|style| style.visuals.window_shadow = egui::epaint::Shadow::NONE);
                 egui::Window::new("test")
-                    .resizable(true)
-                    .vscroll(true)
+                    .resizable(false)
+                    .vscroll(false)
                     .show(ctx, |ui| {
                         ui.heading("eguee");
                     });
 
+                self.scene.render_egui(ctx);
                 self.gi.render_egui(ctx);
             },
         );
@@ -159,24 +146,13 @@ impl<'a> State<'a> {
     fn render(&mut self) {
         let output = self.surface.get_current_texture().unwrap();
 
-        if self
-            .input_controller
-            .mouse_button_pressed(winit::event::MouseButton::Left)
-        {
-            self.brush.draw(
-                &self.device,
-                &self.queue,
-                &self.in_texture,
-                [1., 1., 1.],
-                self.input_controller.get_mouse_pos().into(),
-                30.,
-            );
-        }
+        self.scene
+            .update(&self.device, &self.queue, &self.input_controller);
 
         self.gi.render(
             &self.device,
             &self.queue,
-            &self.in_texture,
+            &self.scene.texture(),
             &self.out_texture,
         );
 

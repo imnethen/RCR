@@ -190,7 +190,7 @@ impl Raymarcher {
         });
 
         Raymarcher {
-            config: RaymarcherConfig { ray_count: 1024 },
+            config: RaymarcherConfig { ray_count: 64 },
             window_size,
 
             uniform_buffer,

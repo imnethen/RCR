@@ -13,6 +13,8 @@ struct RaymarcherConfig {
 }
 
 pub struct Raymarcher {
+    pub label: String,
+
     config: RaymarcherConfig,
     window_size: (u32, u32),
 
@@ -35,6 +37,7 @@ impl Raymarcher {
         device: &wgpu::Device,
         window_size: (u32, u32),
         out_texture_format: wgpu::TextureFormat,
+        label: String,
     ) -> Self {
         // TODO
         let nearest_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -190,6 +193,8 @@ impl Raymarcher {
         });
 
         Raymarcher {
+            label,
+
             config: RaymarcherConfig { ray_count: 64 },
             window_size,
 
@@ -275,7 +280,7 @@ impl GIRenderer for Raymarcher {
     }
 
     fn render_egui(&mut self, ctx: &egui::Context) {
-        egui::Window::new("raymarcher").show(ctx, |ui| {
+        egui::Window::new(&self.label).show(ctx, |ui| {
             ui.add(egui::Slider::new(&mut self.config.ray_count, 4..=8196).logarithmic(true));
         });
     }

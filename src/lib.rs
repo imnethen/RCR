@@ -138,7 +138,7 @@ impl<'a> State<'a> {
                     });
 
                 self.scene.render_egui(ctx);
-                self.gi.render_egui(ctx);
+                self.gi.render_egui(&self.device, ctx);
             },
         );
     }

@@ -24,7 +24,6 @@ fn march_ray_old_bad_unsdfed(start_pos: vec2f, dir: vec2f) -> vec4f {
 
     for (var step = 0u; step < 128u; step += 1u) {
         let color = textureSampleLevel(in_texture, nearest_sampler, pos * texel, 0.);
-        //let color = vec4f(0.);
         if color.a > 0.01 {
             return color;
         }
@@ -49,7 +48,7 @@ fn march_ray(start_pos: vec2f, dir: vec2f) -> vec4f {
         let dist = textureSampleLevel(sdf_texture, linear_sampler, pos * texel, 0.).r;
         pos += dir * dist;
 
-        if out_of_bounds(vec2i(pos), in_texture_dims) {
+        if out_of_bounds(pos, in_texture_dims) {
             return vec4f(0.);
         }
     }
@@ -71,10 +70,9 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
     }
 
     result /= f32(uniforms.ray_count);
-    //return vec4f(result.rgb, 1.);
     textureStore(out_texture, pixel_pos, vec4f(result.rgb, 1.));
 }
 
-fn out_of_bounds(pos: vec2i, dims: vec2u) -> bool {
-    return (pos.x < 0 || pos.y < 0 || pos.x >= i32(dims.x) || pos.y >= i32(dims.y));
+fn out_of_bounds(pos: vec2f, dims: vec2u) -> bool {
+    return (pos.x < 0. || pos.y < 0. || pos.x >= f32(dims.x) || pos.y >= f32(dims.y));
 }

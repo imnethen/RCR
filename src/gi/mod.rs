@@ -40,4 +40,8 @@ impl GI {
     ) {
         self.renderers[self.cur_renderer].render(device, queue, in_texture, out_texture);
     }
+
+    pub fn render_egui(&mut self, ctx: &egui::Context) {
+        self.renderers[self.cur_renderer].render_egui(ctx);
+    }
 }

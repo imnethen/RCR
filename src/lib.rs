@@ -7,8 +7,8 @@ mod screenpass;
 mod texturerenderer;
 
 use brush::Brush;
+use egui_renderer::EguiRenderer;
 use gi::GI;
-use jfa::JFA;
 use texturerenderer::TextureRenderer;
 
 use egui_wgpu::wgpu;
@@ -29,7 +29,7 @@ struct State<'a> {
     brush: Brush,
     texture_renderer: TextureRenderer,
     gi: GI,
-    temp_jfa: JFA,
+    egui_renderer: EguiRenderer,
 
     in_texture: wgpu::Texture,
     out_texture: wgpu::Texture,
@@ -76,6 +76,7 @@ impl<'a> State<'a> {
         let texture_renderer =
             TextureRenderer::new(&device, wgpu::FilterMode::Linear, config.format);
         let gi = GI::new(&device, (size.width, size.height));
+        let egui_renderer = EguiRenderer::new(&device, config.format, &window);
 
         let input_controller = InputController::default();
 
@@ -111,8 +112,6 @@ impl<'a> State<'a> {
             view_formats: &[],
         });
 
-        let temp_jfa = JFA::new(&device, (size.width, size.height), config.format);
-
         State {
             device,
             queue,
@@ -124,14 +123,37 @@ impl<'a> State<'a> {
             brush,
             texture_renderer,
             gi,
-
-            temp_jfa,
+            egui_renderer,
 
             input_controller,
 
             in_texture,
             out_texture,
         }
+    }
+
+    fn render_egui(&mut self, out_texture_view: &wgpu::TextureView) {
+        self.egui_renderer.render(
+            &self.device,
+            &self.queue,
+            &self.window,
+            out_texture_view,
+            egui_wgpu::ScreenDescriptor {
+                size_in_pixels: self.window.inner_size().into(),
+                pixels_per_point: 1.,
+            },
+            |ctx| {
+                ctx.style_mut(|style| style.visuals.window_shadow = egui::epaint::Shadow::NONE);
+                egui::Window::new("test")
+                    .resizable(true)
+                    .vscroll(true)
+                    .show(ctx, |ui| {
+                        ui.heading("eguee");
+                    });
+
+                self.gi.render_egui(ctx);
+            },
+        );
     }
 
     fn render(&mut self) {
@@ -151,12 +173,6 @@ impl<'a> State<'a> {
             );
         }
 
-        // self.temp_jfa
-        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
-
-        // self.texture_renderer
-        //     .render(&self.device, &self.queue, &self.in_texture, &output.texture);
-
         self.gi.render(
             &self.device,
             &self.queue,
@@ -170,6 +186,8 @@ impl<'a> State<'a> {
             &self.out_texture,
             &output.texture,
         );
+
+        self.render_egui(&output.texture.create_view(&Default::default()));
 
         output.present();
     }
@@ -192,14 +210,19 @@ pub async fn run() {
                 ref event,
                 window_id: _,
             } => {
-                let consumed = state.input_controller.process_event(&event);
-                // if consumed {
-                //     return;
-                // }
+                let consumed_by_egui = state
+                    .egui_renderer
+                    .handle_input(&state.window, event)
+                    .consumed;
+                if consumed_by_egui {
+                    return;
+                }
+
+                let _consumed_by_ic = state.input_controller.process_event(&event);
 
                 match event {
                     WindowEvent::Resized(new_size) => {
-                        // TODO: resize in_texture and all the other stuff
+                        // TODO: resize in_texture and all the other stuff and egui and ashnteoioi
                         state.config.width = new_size.width;
                         state.config.height = new_size.height;
                         state.surface.configure(&state.device, &state.config);

@@ -13,8 +13,13 @@ impl EguiRenderer {
     ) -> Self {
         let context = egui::Context::default();
 
-        // TODO: none none
-        let state = egui_winit::State::new(context, egui::ViewportId::ROOT, window, None, None);
+        let state = egui_winit::State::new(
+            context,
+            egui::ViewportId::ROOT,
+            window,
+            Some(window.scale_factor() as f32),
+            None,
+        );
         let renderer = egui_wgpu::Renderer::new(device, out_texture_format, None, 1);
 
         EguiRenderer { state, renderer }
@@ -82,6 +87,8 @@ impl EguiRenderer {
             self.renderer
                 .render(&mut render_pass, &tris, &screen_descriptor);
         }
+
+        queue.submit(Some(encoder.finish()));
 
         for tex in &full_output.textures_delta.free {
             self.renderer.free_texture(tex);

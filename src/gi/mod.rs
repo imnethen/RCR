@@ -117,15 +117,39 @@ impl GI {
 
         match self.cur_renderer {
             CurRenderer::Diff => {
-                egui::Window::new("diff").show(ctx, |ui| {
-                    ui.add(egui::DragValue::new(&mut self.diff_indices.0));
-                    ui.add(egui::DragValue::new(&mut self.diff_indices.1));
+                egui::Window::new("diff")
+                    .default_size(egui::Vec2::new(1., 1.))
+                    .show(ctx, |ui| {
+                        ui.heading("renderer indices");
 
-                    ui.add(
-                        egui::Slider::new(&mut self.difference.config.mult, 1.0..=200.)
-                            .logarithmic(true),
-                    );
-                });
+                        ui.columns(2, |columns| {
+                            columns[0].add(egui::DragValue::new(&mut self.diff_indices.0));
+                            columns[1].add(egui::DragValue::new(&mut self.diff_indices.1));
+                        });
+
+                        ui.heading("multiplier");
+                        ui.add(
+                            egui::Slider::new(&mut self.difference.config.mult, 1.0..=200.)
+                                .logarithmic(true),
+                        );
+
+                        ui.heading("difference mode");
+                        ui.radio_value(
+                            &mut self.difference.config.mode,
+                            difference::DiffMode::Abs,
+                            "abs",
+                        );
+                        ui.radio_value(
+                            &mut self.difference.config.mode,
+                            difference::DiffMode::FirstMinusSecond,
+                            "first - second",
+                        );
+                        ui.radio_value(
+                            &mut self.difference.config.mode,
+                            difference::DiffMode::SecondMinusFirst,
+                            "second - first",
+                        );
+                    });
 
                 if self.diff_indices.0 < self.renderers.len() {
                     self.renderers[self.diff_indices.0].render_egui(ctx);

@@ -28,6 +28,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     var dist = 1e9;
     if closest_pos.x != nonexistent_coord {
         dist = distance(closest_pos, vec2f(pixel_pos));
+        dist = max(dist - 0.5 * sqrt(2.), 0.01);
     }
     return vec4f(dist, vec3f(0.));
 }

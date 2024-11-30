@@ -2,7 +2,7 @@ use super::GIRenderer;
 use egui_wgpu::wgpu;
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum DiffMode {
     Abs = 0,
     FirstMinusSecond = 1,

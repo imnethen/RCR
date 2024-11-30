@@ -1,11 +1,11 @@
-use crate::brush_square::Brush;
+use crate::brush::Brush;
 use crate::InputController;
 use egui_wgpu::wgpu;
 
 struct SceneConfig {
     brush_color_left: [f32; 3],
     brush_color_right: [f32; 3],
-    brush_size: u32,
+    brush_radius: f32,
 }
 
 impl Default for SceneConfig {
@@ -13,7 +13,7 @@ impl Default for SceneConfig {
         SceneConfig {
             brush_color_left: [1., 1., 1.],
             brush_color_right: [0., 0., 0.],
-            brush_size: 30,
+            brush_radius: 30.,
         }
     }
 }
@@ -22,13 +22,12 @@ pub struct Scene {
     config: SceneConfig,
     brush: Brush,
     texture: wgpu::Texture,
-    texture_view: wgpu::TextureView,
 }
 
 impl Scene {
     pub fn new(device: &wgpu::Device, texture_size: (u32, u32)) -> Self {
         let config = SceneConfig::default();
-        let brush = Brush::new(device);
+        let brush = Brush::new(device, wgpu::TextureFormat::Rgba8Unorm);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("scene texture"),
             dimension: wgpu::TextureDimension::D2,
@@ -40,19 +39,14 @@ impl Scene {
                 height: texture_size.1,
                 depth_or_array_layers: 1,
             },
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         Scene {
             config,
             brush,
             texture,
-            texture_view,
         }
     }
 
@@ -77,19 +71,14 @@ impl Scene {
             self.clear_texture(device, queue);
         }
 
-        let mouse_pos = {
-            let mpf = input_controller.get_mouse_pos();
-            [mpf.0 as u32, mpf.1 as u32]
-        };
-
         if input_controller.mouse_button_pressed(winit::event::MouseButton::Left) {
             self.brush.draw(
                 device,
                 queue,
-                &self.texture_view,
+                &self.texture,
                 self.config.brush_color_left,
-                mouse_pos,
-                self.config.brush_size,
+                input_controller.get_mouse_pos().into(),
+                self.config.brush_radius,
             );
         }
 
@@ -97,10 +86,10 @@ impl Scene {
             self.brush.draw(
                 device,
                 queue,
-                &self.texture_view,
+                &self.texture,
                 self.config.brush_color_right,
-                mouse_pos,
-                self.config.brush_size,
+                input_controller.get_mouse_pos().into(),
+                self.config.brush_radius,
             );
         }
     }
@@ -112,7 +101,7 @@ impl Scene {
     pub fn render_egui(&mut self, ctx: &egui::Context) {
         egui::Window::new("scene").show(ctx, |ui| {
             ui.heading("brush radius");
-            let brush_radius_slider = egui::Slider::new(&mut self.config.brush_size, 1..=1024)
+            let brush_radius_slider = egui::Slider::new(&mut self.config.brush_radius, 1.0..=1024.)
                 .logarithmic(true)
                 .suffix("px");
             ui.add(brush_radius_slider);

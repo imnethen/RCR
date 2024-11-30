@@ -1,4 +1,5 @@
-mod brush;
+mod brush_circle;
+mod brush_square;
 mod egui_renderer;
 mod gi;
 mod inpututil;
@@ -7,7 +8,6 @@ mod scene;
 mod screenpass;
 mod texturerenderer;
 
-use brush::Brush;
 use egui_renderer::EguiRenderer;
 use gi::GI;
 use scene::Scene;
@@ -57,7 +57,8 @@ impl<'a> State<'a> {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::FLOAT32_FILTERABLE,
+                        | wgpu::Features::FLOAT32_FILTERABLE
+                        | wgpu::Features::CLEAR_TEXTURE,
                     required_limits: wgpu::Limits {
                         max_push_constant_size: 4,
                         ..Default::default()
@@ -130,12 +131,6 @@ impl<'a> State<'a> {
             },
             |ctx| {
                 ctx.style_mut(|style| style.visuals.window_shadow = egui::epaint::Shadow::NONE);
-                egui::Window::new("test")
-                    .resizable(false)
-                    .vscroll(false)
-                    .show(ctx, |ui| {
-                        ui.heading("eguee");
-                    });
 
                 self.scene.render_egui(ctx);
                 self.gi.render_egui(&self.device, ctx);
@@ -174,7 +169,7 @@ pub async fn run() {
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
     let window = winit::window::WindowBuilder::new()
         .with_resizable(false)
-        .with_inner_size(winit::dpi::PhysicalSize::new(2048, 1024))
+        .with_inner_size(winit::dpi::PhysicalSize::new(1920, 1080))
         .build(&event_loop)
         .unwrap();
 

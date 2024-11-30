@@ -37,6 +37,25 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
+    fn create_out_texture(device: &wgpu::Device, size: (u32, u32)) -> wgpu::Texture {
+        device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("out texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba32Float,
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: size.0,
+                height: size.1,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        })
+    }
+
     async fn new(window: &'a winit::window::Window) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::default();
@@ -57,8 +76,7 @@ impl<'a> State<'a> {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::FLOAT32_FILTERABLE
-                        | wgpu::Features::CLEAR_TEXTURE,
+                        | wgpu::Features::FLOAT32_FILTERABLE,
                     required_limits: wgpu::Limits {
                         max_push_constant_size: 4,
                         ..Default::default()
@@ -83,22 +101,7 @@ impl<'a> State<'a> {
 
         let scene = Scene::new(&device, (size.width, size.height));
 
-        let out_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("out texture"),
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
-            mip_level_count: 1,
-            sample_count: 1,
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        });
+        let out_texture = State::create_out_texture(&device, (size.width, size.height));
 
         State {
             device,
@@ -193,10 +196,15 @@ pub async fn run() {
 
                 match event {
                     WindowEvent::Resized(new_size) => {
-                        // TODO: resize in_texture and all the other stuff and egui and ashnteoioi
                         state.config.width = new_size.width;
                         state.config.height = new_size.height;
                         state.surface.configure(&state.device, &state.config);
+
+                        let ns = (new_size.width, new_size.height);
+
+                        state.out_texture = State::create_out_texture(&state.device, ns);
+                        state.scene.resize(&state.device, ns);
+                        state.gi.resize(&state.device, ns);
                     }
                     WindowEvent::CloseRequested => target.exit(),
                     WindowEvent::RedrawRequested => {

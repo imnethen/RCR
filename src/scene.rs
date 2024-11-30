@@ -26,10 +26,8 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(device: &wgpu::Device, texture_size: (u32, u32)) -> Self {
-        let config = SceneConfig::default();
-        let brush = Brush::new(device);
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+    fn create_texture(device: &wgpu::Device, texture_size: (u32, u32)) -> wgpu::Texture {
+        device.create_texture(&wgpu::TextureDescriptor {
             label: Some("scene texture"),
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
@@ -44,7 +42,13 @@ impl Scene {
                 | wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING,
             view_formats: &[],
-        });
+        })
+    }
+
+    pub fn new(device: &wgpu::Device, texture_size: (u32, u32)) -> Self {
+        let config = SceneConfig::default();
+        let brush = Brush::new(device);
+        let texture = Scene::create_texture(device, texture_size);
 
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -56,15 +60,26 @@ impl Scene {
         }
     }
 
-    fn clear_texture(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if !device.features().contains(wgpu::Features::CLEAR_TEXTURE) {
-            // TODO
-            println!("oops ! no clear texture feature");
-        }
-        let mut clear_encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        clear_encoder.clear_texture(&self.texture, &wgpu::ImageSubresourceRange::default());
-        queue.submit(Some(clear_encoder.finish()));
+    pub fn resize(&mut self, device: &wgpu::Device, texture_size: (u32, u32)) {
+        self.texture = Scene::create_texture(device, texture_size);
+        self.texture_view = self
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+    }
+
+    fn clear_texture(&mut self, device: &wgpu::Device) {
+        self.texture = Scene::create_texture(device, (self.texture.width(), self.texture.height()));
+        self.texture_view = self
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+    }
+
+    pub fn texture(&self) -> &wgpu::Texture {
+        &self.texture
+    }
+
+    pub fn texture_view(&self) -> &wgpu::TextureView {
+        &self.texture_view
     }
 
     pub fn update(
@@ -74,7 +89,7 @@ impl Scene {
         input_controller: &InputController,
     ) {
         if input_controller.key_just_pressed(winit::keyboard::KeyCode::Space) {
-            self.clear_texture(device, queue);
+            self.clear_texture(device);
         }
 
         let mouse_pos = {
@@ -103,10 +118,6 @@ impl Scene {
                 self.config.brush_size,
             );
         }
-    }
-
-    pub fn texture(&self) -> &wgpu::Texture {
-        &self.texture
     }
 
     pub fn render_egui(&mut self, ctx: &egui::Context) {

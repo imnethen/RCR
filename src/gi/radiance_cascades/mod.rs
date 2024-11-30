@@ -8,14 +8,14 @@ struct RawUniformData {
     ray_count: u32,
 }
 
-struct RaymarcherConfig {
+struct RCConfig {
     ray_count: u32,
 }
 
-pub struct Raymarcher {
+pub struct RadianceCascades {
     pub label: String,
 
-    config: RaymarcherConfig,
+    config: RCConfig,
     window_size: (u32, u32),
 
     uniform_buffer: wgpu::Buffer,
@@ -32,12 +32,12 @@ pub struct Raymarcher {
     pipeline: wgpu::ComputePipeline,
 }
 
-impl Raymarcher {
+impl RadianceCascades {
     const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R32Float;
 
     fn create_sdf_texture(device: &wgpu::Device, size: (u32, u32)) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("raymarcher sdf texture"),
+            label: Some("radiance cascades sdf texture"),
             size: wgpu::Extent3d {
                 width: size.0,
                 height: size.1,
@@ -46,7 +46,7 @@ impl Raymarcher {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: Raymarcher::SDF_FORMAT,
+            format: RadianceCascades::SDF_FORMAT,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         })
@@ -59,32 +59,32 @@ impl Raymarcher {
         label: String,
     ) -> Self {
         let nearest_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("raymarcher nearest sampler"),
+            label: Some("radiance cascades nearest sampler"),
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("raymarcher linear sampler"),
+            label: Some("radiance cascades linear sampler"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("raymarcher uniform bufer"),
+            label: Some("radiance cascades uniform bufer"),
             size: std::mem::size_of::<RawUniformData>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        let sdf_texture = Raymarcher::create_sdf_texture(device, window_size);
+        let sdf_texture = RadianceCascades::create_sdf_texture(device, window_size);
         let sdf_view = sdf_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let jfa = JFA::new(device, window_size, Raymarcher::SDF_FORMAT);
+        let jfa = JFA::new(device, window_size, RadianceCascades::SDF_FORMAT);
 
         let uniform_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("raymarcher uniform bind group layout"),
+            label: Some("radiance cascades uniform bind group layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -112,7 +112,7 @@ impl Raymarcher {
         });
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("raymarcher uniform bind group"),
+            label: Some("radiance cascades uniform bind group"),
             layout: &uniform_bgl,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -131,7 +131,7 @@ impl Raymarcher {
         });
 
         let textures_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("raymarcher texture bind group layout"),
+            label: Some("radiance cascades texture bind group layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -175,17 +175,17 @@ impl Raymarcher {
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("raymarcher pipeline"),
+            label: Some("radiance cascades pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
             entry_point: "main",
             compilation_options: Default::default(),
         });
 
-        Raymarcher {
+        RadianceCascades {
             label,
 
-            config: RaymarcherConfig { ray_count: 64 },
+            config: RCConfig { ray_count: 64 },
             window_size,
 
             uniform_buffer,
@@ -208,7 +208,7 @@ impl Raymarcher {
         out_texture_view: &wgpu::TextureView,
     ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("raymarcher textures bind group"),
+            label: Some("radiance cascades textures bind group"),
             layout: &self.textures_bgl,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -228,7 +228,7 @@ impl Raymarcher {
     }
 }
 
-impl GIRenderer for Raymarcher {
+impl GIRenderer for RadianceCascades {
     fn render(
         &self,
         device: &wgpu::Device,
@@ -275,10 +275,10 @@ impl GIRenderer for Raymarcher {
 
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
         self.window_size = new_size;
-        self.sdf_texture = Raymarcher::create_sdf_texture(device, new_size);
+        self.sdf_texture = RadianceCascades::create_sdf_texture(device, new_size);
         self.sdf_view = self
             .sdf_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.jfa = JFA::new(device, new_size, Raymarcher::SDF_FORMAT);
+        self.jfa = JFA::new(device, new_size, RadianceCascades::SDF_FORMAT);
     }
 }

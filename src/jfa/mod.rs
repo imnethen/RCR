@@ -175,10 +175,6 @@ impl JFA {
         }
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, new_window_size: (u32, u32)) {
-        //self.temp_textures = JFA::create_temp_textures(device, new_window_size);
-    }
-
     pub fn render(
         &self,
         device: &wgpu::Device,

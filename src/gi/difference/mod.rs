@@ -170,6 +170,10 @@ impl Difference {
         }
     }
 
+    pub fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
+        self.temp_textures = Difference::create_temp_textures(device, new_size);
+    }
+
     pub fn render(&self, device: &wgpu::Device, queue: &wgpu::Queue, out_texture: &wgpu::Texture) {
         let out_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("a diff out bind group"),

@@ -1,8 +1,10 @@
 mod difference;
+mod radiance_cascades;
 mod raymarcher;
 
 use difference::Difference;
 use egui_wgpu::wgpu;
+use radiance_cascades::RadianceCascades;
 use raymarcher::Raymarcher;
 
 trait GIRenderer {
@@ -16,6 +18,9 @@ trait GIRenderer {
 
     #[allow(unused_variables)]
     fn render_egui(&mut self, ctx: &egui::Context) {}
+
+    #[allow(unused_variables)]
+    fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {}
 }
 
 #[derive(PartialEq)]
@@ -37,11 +42,11 @@ pub struct GI {
 
 impl GI {
     pub fn new(device: &wgpu::Device, window_size: (u32, u32)) -> Self {
-        let default_renderer = Raymarcher::new(
+        let default_renderer = RadianceCascades::new(
             &device,
             window_size,
             wgpu::TextureFormat::Rgba32Float,
-            "raymarcher 0".to_owned(),
+            "rc 0".to_owned(),
         );
         GI {
             renderers: vec![Box::new(default_renderer)],
@@ -54,6 +59,14 @@ impl GI {
         }
     }
 
+    pub fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
+        self.cur_window_size = new_size;
+        self.difference.resize(device, new_size);
+        for i in 0..self.renderers.len() {
+            self.renderers[i].resize(device, new_size);
+        }
+    }
+
     pub fn render(
         &self,
         device: &wgpu::Device,
@@ -61,7 +74,6 @@ impl GI {
         in_texture: &wgpu::Texture,
         out_texture: &wgpu::Texture,
     ) {
-        //self.renderers[self.cur_renderer].render(device, queue, in_texture, out_texture);
         match self.cur_renderer {
             CurRenderer::Diff => {
                 if self.diff_indices.0 >= self.renderers.len()
@@ -94,7 +106,7 @@ impl GI {
     }
 
     pub fn render_egui(&mut self, device: &wgpu::Device, ctx: &egui::Context) {
-        egui::Window::new("gi instances").show(ctx, |ui| {
+        egui::Window::new("bwaah").show(ctx, |ui| {
             if ui.button("new raymarcher").clicked() {
                 self.renderers.push(Box::new(Raymarcher::new(
                     device,
@@ -103,14 +115,22 @@ impl GI {
                     format!("raymarcher {}", self.renderers.len()),
                 )));
             }
+            if ui.button("new radiance_cascades").clicked() {
+                self.renderers.push(Box::new(RadianceCascades::new(
+                    device,
+                    self.cur_window_size,
+                    wgpu::TextureFormat::Rgba32Float,
+                    format!("rc {}", self.renderers.len()),
+                )));
+            }
             ui.separator();
-            ui.heading("current gi instance");
+            ui.heading("current");
             ui.radio_value(&mut self.cur_renderer, CurRenderer::Diff, "Difference");
             for i in 0..self.renderers.len() {
                 ui.radio_value(
                     &mut self.cur_renderer,
                     CurRenderer::Index(i),
-                    format!("instance {}", i),
+                    format!("renderer {}", i),
                 );
             }
         });

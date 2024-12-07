@@ -98,36 +98,26 @@ impl JFA {
                 ],
             });
 
-        let main_bind_groups = [
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("jfa first main bind group"),
-                layout: &main_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[1]),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[0]),
-                    },
-                ],
-            }),
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("jfa second main bind group"),
-                layout: &main_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[0]),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[1]),
-                    },
-                ],
-            }),
-        ];
+        let main_bind_groups: [wgpu::BindGroup; 2] = (0..=1)
+            .map(|i| {
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("a jfa main bind group"),
+                    layout: &main_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&temp_texture_views[!i]),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&temp_texture_views[i]),
+                        },
+                    ],
+                })
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
 
         let main_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("jfa main pipeline layout"),

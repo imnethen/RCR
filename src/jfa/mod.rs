@@ -103,7 +103,7 @@ impl JFA {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[!i]),
+                        resource: wgpu::BindingResource::TextureView(&temp_texture_views[1 - i]),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,

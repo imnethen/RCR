@@ -42,12 +42,7 @@ pub struct GI {
 
 impl GI {
     pub fn new(device: &wgpu::Device, window_size: (u32, u32)) -> Self {
-        let default_renderer = RadianceCascades::new(
-            &device,
-            window_size,
-            wgpu::TextureFormat::Rgba32Float,
-            "rc 0".to_owned(),
-        );
+        let default_renderer = RadianceCascades::new(&device, window_size, "rc 0".to_owned());
         GI {
             renderers: vec![Box::new(default_renderer)],
             cur_renderer: CurRenderer::Index(0),
@@ -119,7 +114,6 @@ impl GI {
                 self.renderers.push(Box::new(RadianceCascades::new(
                     device,
                     self.cur_window_size,
-                    wgpu::TextureFormat::Rgba32Float,
                     format!("rc {}", self.renderers.len()),
                 )));
             }

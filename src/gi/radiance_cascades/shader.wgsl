@@ -1,7 +1,15 @@
 const tau = 6.283185307179586;
 
 struct uniform_data {
-    ray_count: u32
+    c0_rays: u32,
+    c0_spacing: f32,
+    c0_raylength: f32,
+
+    angular_scaling: u32,
+    spatial_scaling: f32,
+
+    num_cascades: u32,
+    cur_cascade: u32,
 }
 
 @group(0) @binding(0)
@@ -10,12 +18,15 @@ var<uniform> uniforms: uniform_data;
 var nearest_sampler: sampler;
 @group(0) @binding(2)
 var linear_sampler: sampler;
+@group(0) @binding(3)
+var sdf_texture: texture_2d<f32>;
 
 @group(1) @binding(0)
-var sdf_texture: texture_2d<f32>;
-@group(1) @binding(1)
 var in_texture: texture_2d<f32>;
-@group(1) @binding(2)
+
+@group(2) @binding(0)
+var prev_cascade: texture_2d<f32>;
+@group(2) @binding(1)
 var out_texture: texture_storage_2d<rgba32float, write>;
 
 fn to_tex(pos: vec2f, texel: vec2f) -> vec2f {
@@ -49,18 +60,23 @@ fn march_ray(start_pos: vec2f, dir: vec2f) -> vec4f {
 }
 
 @compute
-@workgroup_size(16, 16)
+@workgroup_size(256)
 fn main(@builtin(global_invocation_id) id: vec3u) {
-    let pixel_pos = id.xy;
+    let in_texture_dims = textureDimensions(in_texture);
+    let out_texture_dims = textureDimensions(out_texture);
+    let in_pixel_pos = vec2u(id.x % in_texture_dims.x, id.x / in_texture_dims.x);
+    let out_pixel_pos = vec2u(id.x % out_texture_dims.x, id.x / out_texture_dims.x);
 
     var result = vec4f(0.);
 
-    for (var i = 0u; i < uniforms.ray_count; i += 1u) {
-        let angle = f32(i) * tau / f32(uniforms.ray_count);
+    // FIXME
+    let ray_count = 64u;
+    for (var i = 0u; i < ray_count; i += 1u) {
+        let angle = f32(i) * tau / f32(ray_count);
         let dir = vec2f(cos(angle), sin(angle));
-        result += march_ray(vec2f(pixel_pos), dir);
+        result += march_ray(vec2f(in_pixel_pos), dir);
     }
 
-    result /= f32(uniforms.ray_count);
-    textureStore(out_texture, pixel_pos, vec4f(result.rgb, 1.));
+    result /= f32(ray_count);
+    textureStore(out_texture, out_pixel_pos, vec4f(result.rgb, 1.));
 }

@@ -15,7 +15,7 @@ impl JFA {
     const TEMP_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg32Float;
 
     fn create_temp_textures(device: &wgpu::Device, window_size: (u32, u32)) -> [wgpu::Texture; 2] {
-        let ct = || {
+        core::array::from_fn(|_| {
             device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("a jfa temp texture"),
                 size: wgpu::Extent3d {
@@ -32,9 +32,7 @@ impl JFA {
                 dimension: wgpu::TextureDimension::D2,
                 view_formats: &[],
             })
-        };
-
-        [ct(), ct()]
+        })
     }
 
     pub fn new(

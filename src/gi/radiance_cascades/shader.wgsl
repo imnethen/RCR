@@ -60,8 +60,9 @@ fn march_ray(start_pos: vec2f, dir: vec2f) -> vec4f {
 }
 
 @compute
-@workgroup_size(256)
-fn main(@builtin(global_invocation_id) id: vec3u) {
+@workgroup_size(16, 16)
+fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw: vec3u) {
+    let id = vec2u(id2d.x + id2d.y * nw.x * 16, 0);
     let in_texture_dims = textureDimensions(in_texture);
     let out_texture_dims = textureDimensions(out_texture);
     let in_pixel_pos = vec2u(id.x % in_texture_dims.x, id.x / in_texture_dims.x);

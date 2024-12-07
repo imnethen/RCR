@@ -71,8 +71,8 @@ impl GIRenderer for RadianceCascades {
             compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
             compute_pass.set_bind_group(2, &self.resources.temp_bind_groups[0], &[]);
             compute_pass.dispatch_workgroups(
-                (self.window_size.0 * self.window_size.1 + 255) / 256,
-                1,
+                (self.window_size.0 + 15) / 16,
+                (self.window_size.1 + 15) / 16,
                 1,
             );
         }

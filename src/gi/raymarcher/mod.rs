@@ -258,8 +258,8 @@ impl GIRenderer for Raymarcher {
             compute_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             compute_pass.set_bind_group(1, &textures_bind_group, &[]);
             compute_pass.dispatch_workgroups(
-                (self.window_size.0 + 15) / 16,
-                (self.window_size.1 + 15) / 16,
+                u32::div_ceil(self.window_size.0, 16),
+                u32::div_ceil(self.window_size.1, 16),
                 1,
             );
         }

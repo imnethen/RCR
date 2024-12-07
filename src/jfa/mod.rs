@@ -198,8 +198,8 @@ impl JFA {
             main_pass.set_bind_group(0, &self.main_bind_groups[i % 2], &[]);
             main_pass.set_push_constants(0, &stepsize.to_le_bytes());
             main_pass.dispatch_workgroups(
-                (in_texture.size().width + 15) / 16,
-                (in_texture.size().height + 15) / 16,
+                u32::div_ceil(in_texture.size().width, 16),
+                u32::div_ceil(in_texture.size().height, 16),
                 1,
             );
 

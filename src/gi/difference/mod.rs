@@ -207,8 +207,8 @@ impl Difference {
             compute_pass.set_bind_group(1, &out_bind_group, &[]);
             // TODO
             compute_pass.dispatch_workgroups(
-                (out_texture.size().width + 15) / 16,
-                (out_texture.size().height + 15) / 16,
+                u32::div_ceil(out_texture.size().width, 16),
+                u32::div_ceil(out_texture.size().height, 16),
                 1,
             );
         }

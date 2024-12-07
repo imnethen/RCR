@@ -71,8 +71,8 @@ impl GIRenderer for RadianceCascades {
             compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
             compute_pass.set_bind_group(2, &self.resources.temp_bind_groups[0], &[]);
             compute_pass.dispatch_workgroups(
-                (self.window_size.0 + 15) / 16,
-                (self.window_size.1 + 15) / 16,
+                u32::div_ceil(self.window_size.0, 16),
+                u32::div_ceil(self.window_size.1, 16),
                 1,
             );
         }
@@ -85,8 +85,8 @@ impl GIRenderer for RadianceCascades {
             final_pass.set_pipeline(&self.resources.final_pipeline);
             final_pass.set_bind_group(0, &final_bind_group, &[]);
             final_pass.dispatch_workgroups(
-                (out_texture.width() + 15) / 16,
-                (out_texture.height() + 15) / 16,
+                u32::div_ceil(out_texture.width(), 16),
+                u32::div_ceil(out_texture.height(), 16),
                 1,
             );
         }

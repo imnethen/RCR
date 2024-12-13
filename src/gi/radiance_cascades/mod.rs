@@ -46,13 +46,6 @@ impl GIRenderer for RadianceCascades {
         in_texture: &wgpu::Texture,
         out_texture: &wgpu::Texture,
     ) {
-        let uniform_data = RawUniformData::from(self.config);
-        queue.write_buffer(
-            &self.resources.uniform_buffer,
-            0,
-            bytemuck::bytes_of(&uniform_data),
-        );
-
         let in_view = in_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let out_view = out_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -61,23 +54,72 @@ impl GIRenderer for RadianceCascades {
 
         let in_texture_bind_group = self.resources.create_texture_bind_group(device, &in_view);
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        // let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        {
-            let mut compute_pass =
-                encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
-            compute_pass.set_pipeline(&self.resources.main_pipeline);
-            compute_pass.set_bind_group(0, &self.resources.uniform_bind_group, &[]);
-            compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
-            compute_pass.set_bind_group(2, &self.resources.temp_bind_groups[0], &[]);
-            compute_pass.dispatch_workgroups(
-                u32::div_ceil(self.window_size.0, 16),
-                u32::div_ceil(self.window_size.1, 16),
-                1,
+        // let uniform_data = RawUniformData {
+        //     cur_cascade: 1,
+        //     ..RawUniformData::from(self.config)
+        // };
+        // queue.write_buffer(
+        //     &self.resources.uniform_buffer,
+        //     0,
+        //     bytemuck::bytes_of(&uniform_data),
+        // );
+
+        // {
+        //     let mut compute_pass =
+        //         encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
+        //     compute_pass.set_pipeline(&self.resources.main_pipeline);
+        //     compute_pass.set_bind_group(0, &self.resources.uniform_bind_group, &[]);
+        //     compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
+        //     compute_pass.set_bind_group(2, &self.resources.temp_bind_groups[0], &[]);
+        //     compute_pass.dispatch_workgroups(
+        //         u32::div_ceil(self.resources.temp_textures[0].width(), 16),
+        //         u32::div_ceil(self.resources.temp_textures[0].height(), 16),
+        //         1,
+        //     );
+        // }
+
+        for i in 0..self.config.num_cascades {
+            let mut encoder =
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+            let uniform_data = RawUniformData {
+                cur_cascade: self.config.num_cascades - i - 1,
+                ..RawUniformData::from(self.config)
+            };
+            queue.write_buffer(
+                &self.resources.uniform_buffer,
+                0,
+                bytemuck::bytes_of(&uniform_data),
             );
+
+            {
+                let mut compute_pass =
+                    encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
+                compute_pass.set_pipeline(&self.resources.main_pipeline);
+                compute_pass.set_bind_group(0, &self.resources.uniform_bind_group, &[]);
+                compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
+                compute_pass.set_bind_group(
+                    2,
+                    &self.resources.temp_bind_groups[i as usize % 2],
+                    &[],
+                );
+                compute_pass.dispatch_workgroups(
+                    u32::div_ceil(self.resources.temp_textures[0].width(), 16),
+                    u32::div_ceil(self.resources.temp_textures[0].height(), 16),
+                    1,
+                );
+            }
+            queue.submit(Some(encoder.finish()));
         }
 
-        let final_bind_group = self.resources.create_final_bind_group(device, &out_view, 0);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let final_bind_group = self.resources.create_final_bind_group(
+            device,
+            &out_view,
+            1 - (self.config.num_cascades % 2) as usize,
+        );
 
         {
             let mut final_pass =

@@ -1,13 +1,13 @@
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Zeroable, bytemuck::Pod)]
 pub struct RawUniformData {
-    c0_rays: u32,
-    c0_spacing: f32,
-    c0_raylength: f32,
-    angular_scaling: u32,
-    spatial_scaling: f32,
-    num_cascades: u32,
-    cur_cascade: u32,
+    pub c0_rays: u32,
+    pub c0_spacing: f32,
+    pub c0_raylength: f32,
+    pub angular_scaling: u32,
+    pub spatial_scaling: f32,
+    pub num_cascades: u32,
+    pub cur_cascade: u32,
 }
 
 impl From<RCConfig> for RawUniformData {
@@ -27,12 +27,12 @@ impl From<RCConfig> for RawUniformData {
 
 #[derive(Clone, Copy, Debug)]
 pub struct RCConfig {
-    c0_rays: u32,
-    c0_spacing: f32,
-    c0_raylength: f32,
-    angular_scaling: u32,
-    spatial_scaling: f32,
-    num_cascades: u32,
+    pub c0_rays: u32,
+    pub c0_spacing: f32,
+    pub c0_raylength: f32,
+    pub angular_scaling: u32,
+    pub spatial_scaling: f32,
+    pub num_cascades: u32,
     /*
     TODO:
 

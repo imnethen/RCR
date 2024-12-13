@@ -171,7 +171,7 @@ impl Difference {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
-        self.temp_textures = Difference::create_temp_textures(device, new_size);
+        //self.temp_textures = Difference::create_temp_textures(device, new_size);
     }
 
     pub fn render(&self, device: &wgpu::Device, queue: &wgpu::Queue, out_texture: &wgpu::Texture) {
@@ -205,7 +205,6 @@ impl Difference {
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &self.bind_group, &[]);
             compute_pass.set_bind_group(1, &out_bind_group, &[]);
-            // TODO
             compute_pass.dispatch_workgroups(
                 u32::div_ceil(out_texture.size().width, 16),
                 u32::div_ceil(out_texture.size().height, 16),

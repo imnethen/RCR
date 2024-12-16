@@ -137,9 +137,11 @@ impl GIRenderer for RadianceCascades {
     }
 
     fn render_egui(&mut self, ctx: &egui::Context) {
-        //egui::Window::new(&self.label).show(ctx, |ui| {
-        //ui.add(egui::Slider::new(&mut self.config.ray_count, 4..=8196).logarithmic(true));
-        //});
+        egui::Window::new(&self.label).show(ctx, |ui| {
+            ui.heading("the rc is bad and terrible and evil so not much gui yet");
+            ui.label("heres c0 raylength tho");
+            ui.add(egui::Slider::new(&mut self.config.c0_raylength, 0.5..=512.).logarithmic(true));
+        });
     }
 
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {

@@ -7,6 +7,8 @@ pub enum DiffMode {
     Abs = 0,
     FirstMinusSecond = 1,
     SecondMinusFirst = 2,
+    First = 3,
+    Second = 4,
 }
 
 pub struct DiffConfig {

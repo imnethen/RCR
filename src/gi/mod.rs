@@ -163,6 +163,16 @@ impl GI {
                             difference::DiffMode::SecondMinusFirst,
                             "second - first",
                         );
+                        ui.radio_value(
+                            &mut self.difference.config.mode,
+                            difference::DiffMode::First,
+                            "first",
+                        );
+                        ui.radio_value(
+                            &mut self.difference.config.mode,
+                            difference::DiffMode::Second,
+                            "second",
+                        );
                     });
 
                 if self.diff_indices.0 < self.renderers.len() {

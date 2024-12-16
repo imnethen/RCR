@@ -27,8 +27,14 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
         result = abs(tex1px - tex2px);
     } else if uniforms.mode == 1 {
         result = tex1px - tex2px;
-    } else {
+    } else if uniforms.mode == 2 {
         result = tex2px - tex1px;
+    } else if uniforms.mode == 3 {
+        result = tex1px;
+    } else if uniforms.mode == 4 {
+        result = tex2px;
+    } else {
+        result = vec4f(0., 0., 1., 1.);
     }
 
     textureStore(out_texture, pixel_pos, vec4f(result.rgb * uniforms.mult, 1.));

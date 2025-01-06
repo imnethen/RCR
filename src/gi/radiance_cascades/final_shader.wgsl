@@ -30,7 +30,7 @@ fn pos_1d2d(pos1d: u32, dims: vec2u) -> vec2u {
 @compute
 @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3u) {
-    // let temp_texture_dims = textureDimensions(temp_texture);
+    let temp_texture_dims = textureDimensions(temp_texture);
     let out_texture_dims = textureDimensions(out_texture);
 
     let out_pos = id.xy;
@@ -41,33 +41,34 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
 
     // textureStore(out_texture, out_pos, color);
 
-    textureStore(out_texture, out_pos, get_evil_color(pos_2d1d(id.xy, out_texture_dims)));
+    // textureStore(out_texture, out_pos, get_evil_color(pos_2d1d(id.xy, out_texture_dims)));
+    textureStore(out_texture, out_pos, get_evil_color(id.xy));
 }
 
 // everything after this is evil and bad and will be deleted
 
 // cascade info
-fn get_cascade_angular_resolution(cascade_index: u32) -> u32 {
+fn evil_cascade_angular_resolution(cascade_index: u32) -> u32 {
     return u32(pow(4., f32(cascade_index)));
 }
 
-fn get_cascade_probe_spacing(cascade_index: u32) -> f32 {
+fn evil_cascade_probe_spacing(cascade_index: u32) -> f32 {
     let sindex = pow(2., f32(cascade_index));
     return uniforms.c0_spacing * sindex;
 }
 
-fn get_cascade_spatial_resolution(cascade_index: u32) -> vec2u {
+fn evil_cascade_spatial_resolution(cascade_index: u32) -> vec2u {
     let in_dims = vec2f(textureDimensions(out_texture));
-    let spacing = get_cascade_probe_spacing(cascade_index);
-    return vec2u(ceil(in_dims / spacing));
+    let spacing = evil_cascade_probe_spacing(cascade_index);
+    return vec2u(ceil(in_dims / spacing)) + 1;
 }
 
-fn get_cascade_ray_offset(cascade_index: u32) -> f32 {
+fn evil_cascade_ray_offset(cascade_index: u32) -> f32 {
     let tindex = pow(4., f32(cascade_index));
     return (uniforms.c0_raylength * (1. - tindex)) / (1. - 4.);
 }
 
-fn get_cascade_ray_length(cascade_index: u32) -> f32 {
+fn evil_cascade_ray_length(cascade_index: u32) -> f32 {
     let tindex = pow(4., f32(cascade_index));
     return uniforms.c0_raylength * tindex;
 }
@@ -76,46 +77,39 @@ fn get_cascade_ray_length(cascade_index: u32) -> f32 {
 // probe info
 
 // direction first
-fn get_probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
+fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
     // id = d * wh + y * w + x
     // x = id - dwh - yw = (id % wh) - yw = (id % wh) % w
     // y = (id - dwh - x) / w = (id % wh) / w
 
-    let spatial_resolution = get_cascade_spatial_resolution(cascade_index);
+    let spatial_resolution = evil_cascade_spatial_resolution(cascade_index);
     let x = id % spatial_resolution.x;
     let y = (id % (spatial_resolution.x * spatial_resolution.y)) / spatial_resolution.x;
     return vec2u(x, y);
 }
 
-fn get_probe_position(cascade_index: u32, id: u32) -> vec2f {
-    let index = get_probe_index_2d(cascade_index, id);
-    return get_cascade_probe_spacing(cascade_index) * vec2f(index);
+fn probe_position(cascade_index: u32, id: u32) -> vec2f {
+    let index = probe_index_2d(cascade_index, id);
+    return evil_cascade_probe_spacing(cascade_index) * vec2f(index);
 }
 
 fn get_ray_index(cascade_index: u32, id: u32) -> u32 {
-    let angres = get_cascade_angular_resolution(cascade_index);
+    let angres = evil_cascade_angular_resolution(cascade_index);
     return id / angres;
 }
 
-fn get_evil_color(id1d: u32) -> vec4f {
+fn get_evil_color(pid2d: vec2u) -> vec4f {
     let temp_texture_dims = textureDimensions(temp_texture);
     // if in and out are different sizes then im dead i think but they shouldnt be probably i think
     let inout_texture_dims = textureDimensions(out_texture);
 
-    let pid = get_probe_index_2d(0u, id1d);
-    let spatial = get_cascade_spatial_resolution(0u);
-
-    var poses = array(
-        pid,
-        pid + spatial * vec2u(0, 1),
-        pid + spatial * vec2u(0, 2),
-        pid + spatial * vec2u(0, 3),
-    );
+    let spatial = evil_cascade_spatial_resolution(0u);
+    let pid1d = pos_2d1d(pid2d, spatial);
 
     var result = vec4f(0.);
 
     for (var i = 0u; i < 4u; i += 1u) {
-        result += textureLoad(temp_texture, poses[i], 0);
+        result += textureLoad(temp_texture, pos_1d2d(pid1d + i * spatial.x * spatial.y, temp_texture_dims), 0);
     }
 
     result /= 4.;

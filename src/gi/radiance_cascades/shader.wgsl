@@ -103,7 +103,7 @@ fn evil_cascade_probe_spacing(cascade_index: u32) -> f32 {
 fn evil_cascade_spatial_resolution(cascade_index: u32) -> vec2u {
     let in_dims = vec2f(textureDimensions(in_texture));
     let spacing = evil_cascade_probe_spacing(cascade_index);
-    return vec2u(ceil(in_dims / spacing));
+    return vec2u(ceil(in_dims / spacing)) + 1;
 }
 
 fn evil_cascade_ray_offset(cascade_index: u32) -> f32 {

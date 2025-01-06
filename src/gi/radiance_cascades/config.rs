@@ -54,7 +54,7 @@ impl RCConfig {
             (c0_num.0 / scale_div, c0_num.1 / scale_div)
         };
 
-        (f32::ceil(fnum.0) as u32, f32::ceil(fnum.1) as u32)
+        (f32::ceil(fnum.0) as u32 + 1, f32::ceil(fnum.1) as u32 + 1)
     }
 
     pub fn get_num_probes_1d(&self, window_size: (u32, u32), cascade_num: u32) -> u32 {

@@ -101,37 +101,41 @@ impl GI {
     }
 
     pub fn render_egui(&mut self, device: &wgpu::Device, ctx: &egui::Context) {
-        egui::Window::new("bwaah").show(ctx, |ui| {
-            if ui.button("new raymarcher").clicked() {
-                self.renderers.push(Box::new(Raymarcher::new(
-                    device,
-                    self.cur_window_size,
-                    wgpu::TextureFormat::Rgba32Float,
-                    format!("raymarcher {}", self.renderers.len()),
-                )));
-            }
-            if ui.button("new radiance_cascades").clicked() {
-                self.renderers.push(Box::new(RadianceCascades::new(
-                    device,
-                    self.cur_window_size,
-                    format!("rc {}", self.renderers.len()),
-                )));
-            }
-            ui.separator();
-            ui.heading("current");
-            ui.radio_value(&mut self.cur_renderer, CurRenderer::Diff, "Difference");
-            for i in 0..self.renderers.len() {
-                ui.radio_value(
-                    &mut self.cur_renderer,
-                    CurRenderer::Index(i),
-                    format!("renderer {}", i),
-                );
-            }
-        });
+        egui::Window::new("bwaah")
+            // whar
+            .default_size(egui::Vec2::new(180., 1.))
+            .show(ctx, |ui| {
+                if ui.button("new raymarcher").clicked() {
+                    self.renderers.push(Box::new(Raymarcher::new(
+                        device,
+                        self.cur_window_size,
+                        wgpu::TextureFormat::Rgba32Float,
+                        format!("raymarcher {}", self.renderers.len()),
+                    )));
+                }
+                if ui.button("new radiance_cascades").clicked() {
+                    self.renderers.push(Box::new(RadianceCascades::new(
+                        device,
+                        self.cur_window_size,
+                        format!("rc {}", self.renderers.len()),
+                    )));
+                }
+                ui.separator();
+                ui.heading("current");
+                ui.radio_value(&mut self.cur_renderer, CurRenderer::Diff, "Difference");
+                for i in 0..self.renderers.len() {
+                    ui.radio_value(
+                        &mut self.cur_renderer,
+                        CurRenderer::Index(i),
+                        format!("how do i name things {}", i),
+                    );
+                }
+            });
 
         match self.cur_renderer {
             CurRenderer::Diff => {
                 egui::Window::new("diff")
+                    // whar
                     .default_size(egui::Vec2::new(1., 1.))
                     .show(ctx, |ui| {
                         ui.heading("renderer indices");

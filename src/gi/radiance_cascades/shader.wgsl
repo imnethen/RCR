@@ -133,7 +133,7 @@ fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
 
 fn probe_position(cascade_index: u32, id: u32) -> vec2f {
     let index = probe_index_2d(cascade_index, id);
-    return evil_cascade_probe_spacing(cascade_index) * (vec2f(index) - 0.5);
+    return evil_cascade_probe_spacing(cascade_index) * (vec2f(index) - 0.5) + 1.;
 }
 
 fn ray_index(cascade_index: u32, id: u32) -> u32 {
@@ -151,7 +151,8 @@ fn bad_and_evil_rc_that_ignores_config_and_is_bad(id1d: u32) -> vec4f {
 
     let angle = ray_index_to_angle(uniforms.cur_cascade, f32(ray_index(uniforms.cur_cascade, id1d)) + 0.5);
     let ray_dir = vec2f(cos(angle), sin(angle));
-    let ray_color = march_ray(probe_position(uniforms.cur_cascade, id1d) - vec2f(0.5) + ray_dir * evil_cascade_ray_offset(uniforms.cur_cascade), ray_dir, evil_cascade_ray_length(uniforms.cur_cascade));
+    let pos = probe_position(uniforms.cur_cascade, id1d) - vec2f(0.5) + ray_dir * evil_cascade_ray_offset(uniforms.cur_cascade);
+    let ray_color = march_ray(pos, ray_dir, evil_cascade_ray_length(uniforms.cur_cascade));
     result = ray_color;
     return result;
 }
@@ -179,11 +180,11 @@ fn evil_merge(id1d: u32, ray_color: vec4f) -> vec4f {
         vec2u(0, 1),
         vec2u(1, 1),
     );
-    // var weights = bilenear_weights(vec2f(0.25) * vec2f(
+    // var weights = bilinear_weights(vec2f(0.25) * vec2f(
     //     2. * f32(1 - probe_index.x % 2) + 1.,
     //     2. * f32(1 - probe_index.y % 2) + 1.,
     // ));
-    var weights = bilenear_weights(vec2f(0.25) * vec2f(
+    var weights = bilinear_weights(vec2f(0.25) * vec2f(
         2. * f32(probe_index.x % 2) + 1.,
         2. * f32(probe_index.y % 2) + 1.,
     ));
@@ -205,7 +206,7 @@ fn evil_merge(id1d: u32, ray_color: vec4f) -> vec4f {
     return result;
 }
 
-fn bilenear_weights(pos: vec2f) -> array<f32, 4> {
+fn bilinear_weights(pos: vec2f) -> array<f32, 4> {
     return array(
         (1. - pos.x) * (1. - pos.y),
         pos.x * (1. - pos.y),

@@ -4,12 +4,19 @@ use egui_wgpu::wgpu;
 #[derive(Clone, Copy, Debug, bytemuck::Zeroable, bytemuck::Pod)]
 struct RawUniformData {
     color: [f32; 3],
-    _pad1: u32,
+    shape: u32,
     pos: [u32; 2],
-    _pad2: [u32; 2],
+    radius: f32,
+    _pad: u32,
 }
 
-/// cannot be used for different texture formats
+#[derive(Clone, Copy, PartialEq)]
+pub enum BrushShape {
+    Square = 0,
+    Circle = 1,
+}
+
+/// can only be used fo Rgba8Unorm textures
 pub struct Brush {
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -96,15 +103,17 @@ impl Brush {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         out_texture_view: &wgpu::TextureView,
-        color: [f32; 3],
+        shape: BrushShape,
         pos: [u32; 2],
         size: u32,
+        color: [f32; 3],
     ) {
         let uniform_data = RawUniformData {
             color,
-            _pad1: 0,
+            shape: shape as u32,
             pos,
-            _pad2: [0, 0],
+            radius: size as f32 / 2.,
+            _pad: 0,
         };
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniform_data));
 

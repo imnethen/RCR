@@ -1,5 +1,4 @@
-mod brush_circle;
-mod brush_square;
+mod brush;
 mod egui_renderer;
 mod gi;
 mod inpututil;

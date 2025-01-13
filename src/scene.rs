@@ -1,8 +1,10 @@
-use crate::brush_square::Brush;
+use crate::brush::Brush;
+use crate::brush::BrushShape;
 use crate::InputController;
 use egui_wgpu::wgpu;
 
 struct SceneConfig {
+    brush_shape: BrushShape,
     brush_color_left: [f32; 3],
     brush_color_right: [f32; 3],
     brush_size: u32,
@@ -11,6 +13,7 @@ struct SceneConfig {
 impl Default for SceneConfig {
     fn default() -> Self {
         SceneConfig {
+            brush_shape: BrushShape::Circle,
             brush_color_left: [1., 1., 1.],
             brush_color_right: [0., 0., 0.],
             brush_size: 30,
@@ -102,9 +105,10 @@ impl Scene {
                 device,
                 queue,
                 &self.texture_view,
-                self.config.brush_color_left,
+                self.config.brush_shape,
                 mouse_pos,
                 self.config.brush_size,
+                self.config.brush_color_left,
             );
         }
 
@@ -113,26 +117,44 @@ impl Scene {
                 device,
                 queue,
                 &self.texture_view,
-                self.config.brush_color_right,
+                self.config.brush_shape,
                 mouse_pos,
                 self.config.brush_size,
+                self.config.brush_color_right,
             );
         }
     }
 
     pub fn render_egui(&mut self, ctx: &egui::Context) {
-        egui::Window::new("scene").show(ctx, |ui| {
-            ui.heading("brush radius");
-            let brush_radius_slider = egui::Slider::new(&mut self.config.brush_size, 1..=1024)
-                .logarithmic(true)
-                .suffix("px");
-            ui.add(brush_radius_slider);
+        egui::Window::new("scene")
+            // adfkdadadaldadfdakfda
+            .default_size(egui::Vec2::new(0., 0.))
+            .show(ctx, |ui| {
+                ui.heading("brush shape");
+                ui.columns(2, |columns| {
+                    columns[0].radio_value(
+                        &mut self.config.brush_shape,
+                        BrushShape::Square,
+                        "Square",
+                    );
+                    columns[1].radio_value(
+                        &mut self.config.brush_shape,
+                        BrushShape::Circle,
+                        "Circle",
+                    );
+                });
 
-            ui.heading("brush lmb color");
-            ui.color_edit_button_rgb(&mut self.config.brush_color_left);
+                ui.heading("brush size");
+                let brush_size_slider = egui::Slider::new(&mut self.config.brush_size, 1..=1024)
+                    .logarithmic(true)
+                    .suffix("px");
+                ui.add(brush_size_slider);
 
-            ui.heading("brush rmb color");
-            ui.color_edit_button_rgb(&mut self.config.brush_color_right);
-        });
+                ui.heading("brush lmb color");
+                ui.color_edit_button_rgb(&mut self.config.brush_color_left);
+
+                ui.heading("brush rmb color");
+                ui.color_edit_button_rgb(&mut self.config.brush_color_right);
+            });
     }
 }

@@ -17,7 +17,7 @@ trait GIRenderer {
     );
 
     #[allow(unused_variables)]
-    fn render_egui(&mut self, ctx: &egui::Context) {}
+    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {}
 
     #[allow(unused_variables)]
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {}
@@ -101,7 +101,7 @@ impl GI {
     }
 
     pub fn render_egui(&mut self, device: &wgpu::Device, ctx: &egui::Context) {
-        egui::Window::new("bwaah")
+        egui::Window::new("h")
             // whar
             .default_size(egui::Vec2::new(180., 1.))
             .show(ctx, |ui| {
@@ -180,13 +180,13 @@ impl GI {
                     });
 
                 if self.diff_indices.0 < self.renderers.len() {
-                    self.renderers[self.diff_indices.0].render_egui(ctx);
+                    self.renderers[self.diff_indices.0].render_egui(ctx, device);
                 }
                 if self.diff_indices.1 < self.renderers.len() {
-                    self.renderers[self.diff_indices.1].render_egui(ctx);
+                    self.renderers[self.diff_indices.1].render_egui(ctx, device);
                 }
             }
-            CurRenderer::Index(i) => self.renderers[i].render_egui(ctx),
+            CurRenderer::Index(i) => self.renderers[i].render_egui(ctx, device),
         };
     }
 }

@@ -267,7 +267,7 @@ impl GIRenderer for Raymarcher {
         queue.submit(Some(encoder.finish()));
     }
 
-    fn render_egui(&mut self, ctx: &egui::Context) {
+    fn render_egui(&mut self, ctx: &egui::Context, _: &wgpu::Device) {
         egui::Window::new(&self.label).show(ctx, |ui| {
             ui.add(egui::Slider::new(&mut self.config.ray_count, 4..=8196).logarithmic(true));
         });

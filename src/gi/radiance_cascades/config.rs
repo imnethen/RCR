@@ -25,7 +25,7 @@ impl From<RCConfig> for RawUniformData {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RCConfig {
     pub c0_rays: u32,
     pub c0_spacing: f32,
@@ -44,13 +44,13 @@ pub struct RCConfig {
 }
 
 impl RCConfig {
-    pub fn get_num_probes_2d(&self, window_size: (u32, u32), cascade_num: u32) -> (u32, u32) {
+    pub fn get_num_probes_2d(&self, window_size: (u32, u32), cascade_index: u32) -> (u32, u32) {
         let fnum = {
             let c0_num = (
                 window_size.0 as f32 / self.c0_spacing,
                 window_size.1 as f32 / self.c0_spacing,
             );
-            let scale_div = f32::powi(self.spatial_scaling, cascade_num as i32);
+            let scale_div = f32::powi(self.spatial_scaling, cascade_index as i32);
             (c0_num.0 / scale_div, c0_num.1 / scale_div)
         };
 
@@ -64,9 +64,9 @@ impl RCConfig {
 
     pub fn get_max_cascade_size(&self, window_size: (u32, u32)) -> u32 {
         let mut max: u32 = 0;
-        for cascade_num in 0..self.num_cascades {
-            let num_rays = self.c0_rays * u32::pow(self.angular_scaling, cascade_num);
-            max = max.max(num_rays * self.get_num_probes_1d(window_size, cascade_num));
+        for cascade_index in 0..self.num_cascades {
+            let num_rays = self.c0_rays * u32::pow(self.angular_scaling, cascade_index);
+            max = max.max(num_rays * self.get_num_probes_1d(window_size, cascade_index));
         }
 
         max

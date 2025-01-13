@@ -141,7 +141,16 @@ impl<'a> State<'a> {
     }
 
     fn render(&mut self) {
-        let output = self.surface.get_current_texture().unwrap();
+        let output = match self.surface.get_current_texture() {
+            Ok(o) => o,
+            Err(e) => {
+                log::error!(
+                    "Couldn't get current surface texture, skipping frame:\n{:?}",
+                    e
+                );
+                return;
+            }
+        };
 
         self.scene
             .update(&self.device, &self.queue, &self.input_controller);

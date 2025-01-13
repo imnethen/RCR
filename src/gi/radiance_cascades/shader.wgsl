@@ -39,10 +39,6 @@ fn pos_1d2d(pos1d: u32, dims: vec2u) -> vec2u {
     return vec2u(pos1d % dims.x, pos1d / dims.x);
 }
 
-fn to_tex(pos: vec2f, texel: vec2f) -> vec2f {
-    return (pos + vec2f(0.5)) * texel;
-}
-
 fn out_of_bounds(pos: vec2f, dims: vec2u) -> bool {
     return (pos.x < 0. || pos.y < 0. || pos.x >= f32(dims.x) || pos.y >= f32(dims.y));
 }
@@ -54,12 +50,12 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
     var pos = start_pos;
 
     for (var step = 0u; step < 1024u; step += 1u) {
-        let color = textureSampleLevel(in_texture, nearest_sampler, to_tex(pos, texel), 0.);
+        let color = textureSampleLevel(in_texture, nearest_sampler, pos * texel, 0.);
         if color.a > 0.99 {
             return color;
         }
 
-        let dist = textureSampleLevel(sdf_texture, nearest_sampler, to_tex(pos, texel), 0.).r;
+        let dist = textureSampleLevel(sdf_texture, nearest_sampler, pos * texel, 0.).r;
         pos += dir * dist * 0.9;
 
         let from_start = pos - start_pos;
@@ -82,13 +78,120 @@ fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw:
 
     var result = vec4f(0.);
 
-    result = bad_and_evil_rc_that_ignores_config_and_is_bad(id1d);
-    result = evil_merge(id1d, result);
+    result = rc(id1d);
+    result = merge(id1d, result);
 
     textureStore(out_texture, out_pixel_pos, vec4f(result.rgb, 1.));
 }
 
-// everything after this is evil and bad and will be deleted
+// everything after this and before the next one is good and will not be deleted
+fn cascade_angular_resolution(cascade_index: u32) -> u32 {
+    let mult = u32(pow(f32(uniforms.angular_scaling), f32(cascade_index)));
+    return uniforms.c0_rays * mult;
+}
+
+fn cascade_probe_spacing(cascade_index: u32) -> f32 {
+    let mult = pow(f32(uniforms.spatial_scaling), f32(cascade_index));
+    return uniforms.c0_spacing * mult;
+}
+
+fn cascade_spatial_resolution(cascade_index: u32) -> vec2u {
+    let in_dims = vec2f(textureDimensions(in_texture));
+    let spacing = cascade_probe_spacing(cascade_index);
+    return vec2u(ceil(in_dims / spacing)) + 1;
+}
+
+fn cascade_ray_length(cascade_index: u32) -> f32 {
+    let mult = pow(f32(uniforms.angular_scaling), f32(cascade_index));
+    return uniforms.c0_raylength * mult;
+}
+
+fn cascade_ray_offset(cascade_index: u32) -> f32 {
+    let scaling = f32(uniforms.angular_scaling);
+    return uniforms.c0_raylength * (pow(scaling, f32(cascade_index)) - 1.) / (scaling - 1.);
+}
+
+// ---
+
+fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
+    let spatial_resolution = cascade_spatial_resolution(cascade_index);
+    let x = id % spatial_resolution.x;
+    let y = (id % (spatial_resolution.x * spatial_resolution.y)) / spatial_resolution.x;
+    return vec2u(x, y);
+}
+
+fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
+    // TODO: theres an inconsistency that here the function itself subtracts the 0.5
+    // but in the ray calculations the function doesnt do that and has to be done manually when calling it
+    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + 1.;
+}
+
+fn probe_position(cascade_index: u32, id: u32) -> vec2f {
+    let index = probe_index_2d(cascade_index, id);
+    return probe_position_from_index(cascade_index, index);
+}
+
+fn get_ray_index(cascade_index: u32, id: u32) -> u32 {
+    let spares = cascade_spatial_resolution(cascade_index);
+    return id / (spares.x * spares.y);
+}
+
+fn ray_angle_from_index(cascade_index: u32, ray_index: f32) -> f32 {
+    return ray_index * tau / f32(cascade_angular_resolution(cascade_index));
+}
+
+fn rc(id: u32) -> vec4f {
+    let cascade = uniforms.cur_cascade;
+    let ray_index = f32(get_ray_index(cascade, id)) + 0.5;
+    let angle = ray_angle_from_index(uniforms.cur_cascade, ray_index);
+    let dir = vec2f(cos(angle), sin(angle));
+
+    let pos = probe_position(cascade, id) + dir * cascade_ray_offset(cascade);
+    let ray_color = march_ray(pos, dir, cascade_ray_length(cascade));
+    return ray_color;
+}
+
+fn merge(id: u32, ray_color: vec4f) -> vec4f {
+    let curcascade = uniforms.cur_cascade;
+
+    if curcascade >= uniforms.num_cascades - 1 || ray_color.a >= 0.99 {
+        return ray_color;
+    }
+
+    let dims = textureDimensions(prev_cascade);
+
+    let probe_index = probe_index_2d(curcascade, id);
+    let ray_index = get_ray_index(curcascade, id);
+
+    let prev_ray_index = ray_index * uniforms.angular_scaling;
+    let prev_probe_index = vec2u(vec2f(probe_index) / uniforms.spatial_scaling);
+    let prev_spatial = cascade_spatial_resolution(curcascade + 1);
+
+    let probe_pos = probe_position_from_index(curcascade, probe_index);
+    let prev_probe_pos = probe_position_from_index(curcascade + 1, prev_probe_index);
+    let d = probe_pos - prev_probe_pos;
+    var weights = bilinear_weights(d / cascade_probe_spacing(curcascade + 1));
+
+    var result = vec4f(0.);
+
+    for (var i = 0u; i < 4; i += 1u) {
+        let offset = vec2u(i & 1, i >> 1);
+        // TODO: check if clamp is necessary, i think its not
+        let pindex = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
+
+        for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
+            let rindex = prev_ray_index + j;
+            let pos = pindex.x + pindex.y * prev_spatial.x + rindex * prev_spatial.x * prev_spatial.y;
+            result += weights[i] * (1. / f32(uniforms.angular_scaling)) * textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
+        }
+    }
+
+    result.a = 1.;
+    return result;
+}
+
+
+// everything after this is evil and bad and will be deleted except for bilinaer beightahg
 
 // cascade info
 fn evil_cascade_angular_resolution(cascade_index: u32) -> u32 {
@@ -120,7 +223,7 @@ fn evil_cascade_ray_length(cascade_index: u32) -> f32 {
 // probe info
 
 // direction first
-fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
+fn evil_probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
     // id = d * wh + y * w + x
     // x = id - dwh - yw = (id % wh) - yw = (id % wh) % w
     // y = (id - dwh - x) / w = (id % wh) / w
@@ -131,12 +234,12 @@ fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
     return vec2u(x, y);
 }
 
-fn probe_position(cascade_index: u32, id: u32) -> vec2f {
-    let index = probe_index_2d(cascade_index, id);
+fn evil_probe_position(cascade_index: u32, id: u32) -> vec2f {
+    let index = evil_probe_index_2d(cascade_index, id);
     return evil_cascade_probe_spacing(cascade_index) * (vec2f(index) - 0.5) + 1.;
 }
 
-fn ray_index(cascade_index: u32, id: u32) -> u32 {
+fn evil_ray_index(cascade_index: u32, id: u32) -> u32 {
     let spares = evil_cascade_spatial_resolution(cascade_index);
     return id / (spares.x * spares.y);
 }
@@ -149,26 +252,26 @@ fn ray_index_to_angle(cascade_index: u32, ray_index: f32) -> f32 {
 fn bad_and_evil_rc_that_ignores_config_and_is_bad(id1d: u32) -> vec4f {
     var result = vec4f(0.);
 
-    let angle = ray_index_to_angle(uniforms.cur_cascade, f32(ray_index(uniforms.cur_cascade, id1d)) + 0.5);
+    let angle = ray_index_to_angle(uniforms.cur_cascade, f32(evil_ray_index(uniforms.cur_cascade, id1d)) + 0.5);
     let ray_dir = vec2f(cos(angle), sin(angle));
-    let pos = probe_position(uniforms.cur_cascade, id1d) - vec2f(0.5) + ray_dir * evil_cascade_ray_offset(uniforms.cur_cascade);
+    let pos = evil_probe_position(uniforms.cur_cascade, id1d) + ray_dir * evil_cascade_ray_offset(uniforms.cur_cascade);
     let ray_color = march_ray(pos, ray_dir, evil_cascade_ray_length(uniforms.cur_cascade));
     result = ray_color;
     return result;
 }
 
 fn evil_merge(id1d: u32, ray_color: vec4f) -> vec4f {
-    if (uniforms.cur_cascade == uniforms.num_cascades - 1) {
+    if uniforms.cur_cascade == uniforms.num_cascades - 1 {
         return ray_color;
     }
-    if (ray_color.a > 0.99) {
+    if ray_color.a > 0.99 {
         return ray_color;
     }
 
     let dims = textureDimensions(prev_cascade);
 
-    let probe_index = probe_index_2d(uniforms.cur_cascade, id1d);
-    let ray_index = ray_index(uniforms.cur_cascade, id1d);
+    let probe_index = evil_probe_index_2d(uniforms.cur_cascade, id1d);
+    let ray_index = evil_ray_index(uniforms.cur_cascade, id1d);
 
     let prev_ray_index = ray_index * 4;
     let prev_probe_index = probe_index / 2;

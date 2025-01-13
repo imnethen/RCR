@@ -54,36 +54,11 @@ impl GIRenderer for RadianceCascades {
 
         let in_texture_bind_group = self.resources.create_texture_bind_group(device, &in_view);
 
-        // let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-
-        // let uniform_data = RawUniformData {
-        //     cur_cascade: 1,
-        //     ..RawUniformData::from(self.config)
-        // };
-        // queue.write_buffer(
-        //     &self.resources.uniform_buffer,
-        //     0,
-        //     bytemuck::bytes_of(&uniform_data),
-        // );
-
-        // {
-        //     let mut compute_pass =
-        //         encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
-        //     compute_pass.set_pipeline(&self.resources.main_pipeline);
-        //     compute_pass.set_bind_group(0, &self.resources.uniform_bind_group, &[]);
-        //     compute_pass.set_bind_group(1, &in_texture_bind_group, &[]);
-        //     compute_pass.set_bind_group(2, &self.resources.temp_bind_groups[0], &[]);
-        //     compute_pass.dispatch_workgroups(
-        //         u32::div_ceil(self.resources.temp_textures[0].width(), 16),
-        //         u32::div_ceil(self.resources.temp_textures[0].height(), 16),
-        //         1,
-        //     );
-        // }
-
         for i in 0..self.config.num_cascades {
             let mut encoder =
                 device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
+            // TODO: not do this
             let uniform_data = RawUniformData {
                 cur_cascade: self.config.num_cascades - i - 1,
                 ..RawUniformData::from(self.config)
@@ -136,12 +111,37 @@ impl GIRenderer for RadianceCascades {
         queue.submit(Some(encoder.finish()));
     }
 
-    fn render_egui(&mut self, ctx: &egui::Context) {
+    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {
+        let config_before_egui = self.config;
+
         egui::Window::new(&self.label).show(ctx, |ui| {
-            ui.heading("the rc is bad and terrible and evil so not much gui yet");
-            ui.label("heres c0 raylength tho");
+            ui.heading("rc !!!");
+
+            ui.heading("c0 raylength");
             ui.add(egui::Slider::new(&mut self.config.c0_raylength, 0.5..=512.).logarithmic(true));
+
+            ui.heading("c0 probe spacing");
+            ui.add(egui::Slider::new(&mut self.config.c0_spacing, 0.25..=16.).step_by(0.25));
+
+            ui.heading("c0 ray count");
+            ui.add(egui::Slider::new(&mut self.config.c0_rays, 3..=256).logarithmic(true));
+
+            ui.heading("spatial scaling");
+            ui.add(egui::Slider::new(
+                &mut self.config.spatial_scaling,
+                2.0..=8.0,
+            ));
+
+            ui.heading("angular scaling");
+            ui.add(egui::Slider::new(&mut self.config.angular_scaling, 2..=16));
+
+            ui.heading("cascade number");
+            ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
         });
+
+        if self.config != config_before_egui {
+            self.resources = RCResources::new(device, self.window_size, self.config);
+        }
     }
 
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {

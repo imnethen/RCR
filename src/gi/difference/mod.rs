@@ -1,4 +1,3 @@
-use super::GIRenderer;
 use egui_wgpu::wgpu;
 
 #[repr(C)]

@@ -30,89 +30,65 @@ fn pos_1d2d(pos1d: u32, dims: vec2u) -> vec2u {
 @compute
 @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3u) {
-    let temp_texture_dims = textureDimensions(temp_texture);
-    let out_texture_dims = textureDimensions(out_texture);
-
     let out_pos = id.xy;
-    // let id1d = id.x + id.y * out_texture_dims.x;
-    // let temp_pos = vec2u(id1d % temp_texture_dims.x, id1d / temp_texture_dims.x);
-
-    // let color = textureLoad(temp_texture, temp_pos, 0);
-
-    // textureStore(out_texture, out_pos, color);
-
-    // textureStore(out_texture, out_pos, get_evil_color(pos_2d1d(id.xy, out_texture_dims)));
-    textureStore(out_texture, out_pos, get_evil_color(id.xy));
+    textureStore(out_texture, out_pos, get_color(id.xy));
 }
 
-// everything after this is evil and bad and will be deleted
-
-// cascade info
-fn evil_cascade_angular_resolution(cascade_index: u32) -> u32 {
-    return u32(pow(4., f32(cascade_index)));
+fn cascade_probe_spacing(cascade_index: u32) -> f32 {
+    let mult = pow(f32(uniforms.spatial_scaling), f32(cascade_index));
+    return uniforms.c0_spacing * mult;
 }
 
-fn evil_cascade_probe_spacing(cascade_index: u32) -> f32 {
-    let sindex = pow(2., f32(cascade_index));
-    return uniforms.c0_spacing * sindex;
-}
-
-fn evil_cascade_spatial_resolution(cascade_index: u32) -> vec2u {
+fn cascade_spatial_resolution(cascade_index: u32) -> vec2u {
     let in_dims = vec2f(textureDimensions(out_texture));
-    let spacing = evil_cascade_probe_spacing(cascade_index);
+    let spacing = cascade_probe_spacing(cascade_index);
     return vec2u(ceil(in_dims / spacing)) + 1;
 }
 
-fn evil_cascade_ray_offset(cascade_index: u32) -> f32 {
-    let tindex = pow(4., f32(cascade_index));
-    return (uniforms.c0_raylength * (1. - tindex)) / (1. - 4.);
+fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
+    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + 1.;
 }
 
-fn evil_cascade_ray_length(cascade_index: u32) -> f32 {
-    let tindex = pow(4., f32(cascade_index));
-    return uniforms.c0_raylength * tindex;
+fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
+    let index = (probe_pos - 1.) / cascade_probe_spacing(cascade_index) + 0.5;
+    return vec2u(index);
 }
 
-// -----------------------------
-// probe info
-
-// direction first
-fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
-    // id = d * wh + y * w + x
-    // x = id - dwh - yw = (id % wh) - yw = (id % wh) % w
-    // y = (id - dwh - x) / w = (id % wh) / w
-
-    let spatial_resolution = evil_cascade_spatial_resolution(cascade_index);
-    let x = id % spatial_resolution.x;
-    let y = (id % (spatial_resolution.x * spatial_resolution.y)) / spatial_resolution.x;
-    return vec2u(x, y);
-}
-
-fn probe_position(cascade_index: u32, id: u32) -> vec2f {
-    let index = probe_index_2d(cascade_index, id);
-    return evil_cascade_probe_spacing(cascade_index) * vec2f(index);
-}
-
-fn get_ray_index(cascade_index: u32, id: u32) -> u32 {
-    let angres = evil_cascade_angular_resolution(cascade_index);
-    return id / angres;
-}
-
-fn get_evil_color(pid2d: vec2u) -> vec4f {
+fn get_color(id2d: vec2u) -> vec4f {
     let temp_texture_dims = textureDimensions(temp_texture);
-    // if in and out are different sizes then im dead i think but they shouldnt be probably i think
-    let inout_texture_dims = textureDimensions(out_texture);
+    let pos = vec2f(id2d);
 
-    let spatial = evil_cascade_spatial_resolution(0u);
-    let pid1d = pos_2d1d(pid2d, spatial);
+    let probe_index = probe_index_from_position(0u, pos);
+    let probe_pos = probe_position_from_index(0u, probe_index);
+    let spatial_resolution = cascade_spatial_resolution(0u);
+
+    let d = pos - probe_pos;
+    var weights = bilinear_weights(d / cascade_probe_spacing(0u));
 
     var result = vec4f(0.);
 
-    for (var i = 0u; i < 4u; i += 1u) {
-        result += textureLoad(temp_texture, pos_1d2d(pid1d + i * spatial.x * spatial.y, temp_texture_dims), 0);
+    // TODO: variable names
+    for (var i = 0u; i < 4; i += 1u) {
+        let offset = vec2u(i & 1, i >> 1);
+        let pindex1d = pos_2d1d(clamp(probe_index + offset, vec2u(0), spatial_resolution - 1), spatial_resolution);
+
+        for (var j = 0u; j < uniforms.c0_rays; j += 1u) {
+            let prindex1d = pindex1d + j * spatial_resolution.x * spatial_resolution.y;
+            let prindex2d = pos_1d2d(prindex1d, temp_texture_dims);
+
+            result += weights[i] * (1. / f32(uniforms.c0_rays)) * textureLoad(temp_texture, prindex2d, 0);
+        }
     }
 
-    result /= 4.;
     result.a = 1.;
     return result;
+}
+
+fn bilinear_weights(pos: vec2f) -> array<f32, 4> {
+    return array(
+        (1. - pos.x) * (1. - pos.y),
+        pos.x * (1. - pos.y),
+        (1. - pos.x) * pos.y,
+        pos.x * pos.y,
+    );
 }

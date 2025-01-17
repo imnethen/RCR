@@ -86,7 +86,7 @@ fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw:
 
 // everything after this and before the next one is good and will not be deleted
 fn cascade_angular_resolution(cascade_index: u32) -> u32 {
-    let mult = u32(pow(f32(uniforms.angular_scaling), f32(cascade_index)));
+    let mult = u32(ceil(pow(f32(uniforms.angular_scaling), f32(cascade_index))));
     return uniforms.c0_rays * mult;
 }
 

@@ -56,6 +56,7 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
         }
 
         let dist = textureSampleLevel(sdf_texture, nearest_sampler, pos * texel, 0.).r;
+        // TODO: check if the *0.9 is necessary
         pos += dir * dist * 0.9;
 
         let from_start = pos - start_pos;
@@ -123,7 +124,7 @@ fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
     // TODO: theres an inconsistency that here the function itself subtracts the 0.5
     // but in the ray calculations the function doesnt do that and has to be done manually when calling it
-    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + 1.;
+    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + uniforms.c0_spacing;
 }
 
 fn probe_position(cascade_index: u32, id: u32) -> vec2f {
@@ -179,13 +180,18 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
         // TODO: check if clamp is necessary, i think its not
         let pindex = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
+        var probe_result = vec4f(0.);
+
         for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
             let rindex = prev_ray_index + j;
             let pos = pindex.x + pindex.y * prev_spatial.x + rindex * prev_spatial.x * prev_spatial.y;
-            result += weights[i] * (1. / f32(uniforms.angular_scaling)) * textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
+            probe_result += textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
         }
+
+        result += probe_result * weights[i];
     }
 
+    result /= f32(uniforms.angular_scaling);
     result.a = 1.;
     return result;
 }

@@ -46,24 +46,24 @@ fn cascade_spatial_resolution(cascade_index: u32) -> vec2u {
 }
 
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
-    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + 1.;
+    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + uniforms.c0_spacing;
 }
 
 fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
-    let index = (probe_pos - 1.) / cascade_probe_spacing(cascade_index) + 0.5;
+    let index = (probe_pos - uniforms.c0_spacing) / cascade_probe_spacing(cascade_index) + 0.5;
     return vec2u(index);
 }
 
 fn get_color(id2d: vec2u) -> vec4f {
     let temp_texture_dims = textureDimensions(temp_texture);
-    let pos = vec2f(id2d);
+    let pos = vec2f(id2d) + 0.5;
 
     let probe_index = probe_index_from_position(0u, pos);
     let probe_pos = probe_position_from_index(0u, probe_index);
     let spatial_resolution = cascade_spatial_resolution(0u);
 
     let d = pos - probe_pos;
-    var weights = bilinear_weights(d / cascade_probe_spacing(0u));
+    var weights = bilinear_weights(d / uniforms.c0_spacing);
 
     var result = vec4f(0.);
 

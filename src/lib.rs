@@ -75,7 +75,8 @@ impl<'a> State<'a> {
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::PUSH_CONSTANTS
-                        | wgpu::Features::FLOAT32_FILTERABLE,
+                        | wgpu::Features::FLOAT32_FILTERABLE
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     required_limits: wgpu::Limits {
                         max_push_constant_size: 4,
                         ..Default::default()

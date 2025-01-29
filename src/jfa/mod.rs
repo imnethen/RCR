@@ -12,7 +12,7 @@ pub struct JFA {
 }
 
 impl JFA {
-    const TEMP_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg32Float;
+    const TEMP_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg16Float;
 
     fn create_temp_textures(device: &wgpu::Device, window_size: (u32, u32)) -> [wgpu::Texture; 2] {
         core::array::from_fn(|_| {
@@ -40,6 +40,13 @@ impl JFA {
         window_size: (u32, u32),
         out_texture_format: wgpu::TextureFormat,
     ) -> Self {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("jfa smapler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            ..Default::default()
+        });
+
         let temp_textures = JFA::create_temp_textures(device, window_size);
         let temp_texture_views = temp_textures
             .iter()
@@ -93,6 +100,12 @@ impl JFA {
                         },
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
                 ],
             });
 
@@ -108,6 +121,10 @@ impl JFA {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(&temp_texture_views[i]),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
                     },
                 ],
             })
@@ -205,6 +222,7 @@ impl JFA {
 
             stepsize /= 2;
             // TODO: make a nonhacky way to end on temp_textures[0]
+            // or just dont do that at all i dont need it why am i doing this
             if stepsize == 0 {
                 if i % 2 == 1 {
                     stepsize = 1;

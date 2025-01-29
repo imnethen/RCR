@@ -27,7 +27,7 @@ var in_texture: texture_2d<f32>;
 @group(2) @binding(0)
 var prev_cascade: texture_2d<f32>;
 @group(2) @binding(1)
-var out_texture: texture_storage_2d<rgba32float, write>;
+var out_texture: texture_storage_2d<rgba16float, write>;
 
 // convert position from 2d to 1d
 fn pos_2d1d(pos2d: vec2u, dims: vec2u) -> u32 {
@@ -177,7 +177,7 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
 
     for (var i = 0u; i < 4; i += 1u) {
         let offset = vec2u(i & 1, i >> 1);
-        // TODO: check if clamp is necessary, i think its not
+        // TODO: check if clamp is necessary, i dont think it is
         let pindex = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
         var probe_result = vec4f(0.);

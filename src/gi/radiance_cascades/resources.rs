@@ -25,8 +25,8 @@ pub struct RCResources {
 }
 
 impl RCResources {
-    pub const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R32Float;
-    pub const TEMP_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
+    pub const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R16Float;
+    pub const TEMP_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     fn cascade_size_to_extent(cascade_size: u32, window_size: (u32, u32)) -> wgpu::Extent3d {
         //let width = window_size.0 + 1;
@@ -253,7 +253,7 @@ impl RCResources {
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba32Float,
+                        format: wgpu::TextureFormat::Rgba16Float,
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,

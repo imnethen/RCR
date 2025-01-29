@@ -109,7 +109,7 @@ impl GI {
                     self.renderers.push(Box::new(Raymarcher::new(
                         device,
                         self.cur_window_size,
-                        wgpu::TextureFormat::Rgba32Float,
+                        wgpu::TextureFormat::Rgba16Float,
                         format!("raymarcher {}", self.renderers.len()),
                     )));
                 }

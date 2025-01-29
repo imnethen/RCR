@@ -11,7 +11,7 @@ var temp_texture_1: texture_2d<f32>;
 var temp_texture_2: texture_2d<f32>;
 
 @group(1) @binding(0)
-var out_texture: texture_storage_2d<rgba32float, write>;
+var out_texture: texture_storage_2d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16)

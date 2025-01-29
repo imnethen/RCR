@@ -16,7 +16,7 @@ var sdf_texture: texture_2d<f32>;
 @group(1) @binding(1)
 var in_texture: texture_2d<f32>;
 @group(1) @binding(2)
-var out_texture: texture_storage_2d<rgba32float, write>;
+var out_texture: texture_storage_2d<rgba16float, write>;
 
 fn to_tex(pos: vec2f, texel: vec2f) -> vec2f {
     return (pos + vec2f(0.5)) * texel;

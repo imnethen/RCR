@@ -40,7 +40,7 @@ impl<'a> State<'a> {
         device.create_texture(&wgpu::TextureDescriptor {
             label: Some("out texture"),
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
+            format: wgpu::TextureFormat::Rgba16Float,
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {

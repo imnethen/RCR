@@ -15,7 +15,7 @@ var<uniform> uniforms: uniform_data;
 @group(0) @binding(1)
 var temp_texture: texture_2d<f32>;
 @group(0) @binding(2)
-var out_texture: texture_storage_2d<rgba32float, write>;
+var out_texture: texture_storage_2d<rgba16float, write>;
 
 // convert position from 2d to 1d
 fn pos_2d1d(pos2d: vec2u, dims: vec2u) -> u32 {

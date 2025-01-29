@@ -43,7 +43,7 @@ impl Difference {
                     height: size.1,
                     depth_or_array_layers: 1,
                 },
-                format: wgpu::TextureFormat::Rgba32Float,
+                format: wgpu::TextureFormat::Rgba16Float,
                 usage: wgpu::TextureUsages::STORAGE_BINDING
                     | wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -135,7 +135,7 @@ impl Difference {
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba32Float,
+                        format: wgpu::TextureFormat::Rgba16Float,
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,

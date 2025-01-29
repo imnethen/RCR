@@ -33,7 +33,7 @@ pub struct Raymarcher {
 }
 
 impl Raymarcher {
-    const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R32Float;
+    const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R16Float;
 
     fn create_sdf_texture(device: &wgpu::Device, size: (u32, u32)) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {

@@ -82,12 +82,12 @@ fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw:
     result = rc(id1d);
     result = merge(id1d, result);
 
-    textureStore(out_texture, out_pixel_pos, vec4f(result.rgb, 1.));
+    textureStore(out_texture, out_pixel_pos, result);
 }
 
 // everything after this and before the next one is good and will not be deleted
 fn cascade_angular_resolution(cascade_index: u32) -> u32 {
-    let mult = u32(ceil(pow(f32(uniforms.angular_scaling), f32(cascade_index))));
+    let mult = u32(0.5 + pow(f32(uniforms.angular_scaling), f32(cascade_index)));
     return uniforms.c0_rays * mult;
 }
 
@@ -122,9 +122,49 @@ fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
 }
 
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
-    // TODO: theres an inconsistency that here the function itself subtracts the 0.5
-    // but in the ray calculations the function doesnt do that and has to be done manually when calling it
-    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + uniforms.c0_spacing;
+    let pp = cascade_probe_spacing(cascade_index) * vec2f(probe_index);
+    let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
+    return 0.5 + pp - offset * uniforms.c0_spacing;
+}
+
+fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
+    let resolution = cascade_spatial_resolution(cascade_index);
+
+    var res: vec2u;
+    {
+        var l = 0u;
+        var r = resolution.x + 1u;
+
+        while (l + 1 < r) {
+            let m = (l + r) / 2u;
+            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
+            if (pm <= probe_pos.x) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+
+        res.x = l;
+    }
+    {
+        var l = 0u;
+        var r = resolution.y + 1u;
+
+        while (l + 1 < r) {
+            let m = (l + r) / 2u;
+            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
+            if (pm <= probe_pos.y) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+
+        res.y = l;
+    }
+
+    return res;
 }
 
 fn probe_position(cascade_index: u32, id: u32) -> vec2f {
@@ -141,8 +181,11 @@ fn ray_angle_from_index(cascade_index: u32, ray_index: f32) -> f32 {
     return ray_index * tau / f32(cascade_angular_resolution(cascade_index));
 }
 
+// ---
+
 fn rc(id: u32) -> vec4f {
     let cascade = uniforms.cur_cascade;
+
     let ray_index = f32(get_ray_index(cascade, id)) + 0.5;
     let angle = ray_angle_from_index(uniforms.cur_cascade, ray_index);
     let dir = vec2f(cos(angle), sin(angle));
@@ -162,13 +205,13 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
     let dims = textureDimensions(prev_cascade);
 
     let probe_index = probe_index_2d(curcascade, id);
+    let probe_pos = probe_position_from_index(curcascade, probe_index);
     let ray_index = get_ray_index(curcascade, id);
 
     let prev_ray_index = ray_index * uniforms.angular_scaling;
-    let prev_probe_index = vec2u(vec2f(probe_index) / uniforms.spatial_scaling);
+    let prev_probe_index = probe_index_from_position(curcascade + 1, probe_pos);
     let prev_spatial = cascade_spatial_resolution(curcascade + 1);
 
-    let probe_pos = probe_position_from_index(curcascade, probe_index);
     let prev_probe_pos = probe_position_from_index(curcascade + 1, prev_probe_index);
     let d = probe_pos - prev_probe_pos;
     var weights = bilinear_weights(d / cascade_probe_spacing(curcascade + 1));
@@ -178,13 +221,13 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
     for (var i = 0u; i < 4; i += 1u) {
         let offset = vec2u(i & 1, i >> 1);
         // TODO: check if clamp is necessary, i dont think it is
-        let pindex = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
+        let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
         var probe_result = vec4f(0.);
 
         for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
-            let rindex = prev_ray_index + j;
-            let pos = pindex.x + pindex.y * prev_spatial.x + rindex * prev_spatial.x * prev_spatial.y;
+            let merge_ray_index = prev_ray_index + j;
+            let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + merge_ray_index * prev_spatial.x * prev_spatial.y;
             probe_result += textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
         }
 

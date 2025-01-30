@@ -127,9 +127,13 @@ impl GIRenderer for RadianceCascades {
             ui.add(egui::Slider::new(&mut self.config.c0_rays, 3..=256).logarithmic(true));
 
             ui.heading("spatial scaling");
+            ui.label(format!(
+                "per axis, total is {}",
+                self.config.spatial_scaling.powi(2)
+            ));
             ui.add(egui::Slider::new(
                 &mut self.config.spatial_scaling,
-                2.0..=8.0,
+                1.1..=4.0,
             ));
 
             ui.heading("angular scaling");

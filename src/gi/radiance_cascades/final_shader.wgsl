@@ -46,12 +46,49 @@ fn cascade_spatial_resolution(cascade_index: u32) -> vec2u {
 }
 
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
-    return cascade_probe_spacing(cascade_index) * (vec2f(probe_index) - 0.5) + uniforms.c0_spacing;
+    let pp = cascade_probe_spacing(cascade_index) * vec2f(probe_index);
+    let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
+    return 0.5 + pp - offset * uniforms.c0_spacing;
 }
 
 fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
-    let index = (probe_pos - uniforms.c0_spacing) / cascade_probe_spacing(cascade_index) + 0.5;
-    return vec2u(index);
+    let resolution = cascade_spatial_resolution(cascade_index);
+
+    var res: vec2u;
+    {
+        var l = 0u;
+        var r = resolution.x + 1u;
+
+        while (l + 1 < r) {
+            let m = (l + r) / 2u;
+            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
+            if (pm <= probe_pos.x) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+
+        res.x = l;
+    }
+    {
+        var l = 0u;
+        var r = resolution.y + 1u;
+
+        while (l + 1 < r) {
+            let m = (l + r) / 2u;
+            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
+            if (pm <= probe_pos.y) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+
+        res.y = l;
+    }
+
+    return res;
 }
 
 fn get_color(id2d: vec2u) -> vec4f {

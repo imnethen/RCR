@@ -32,12 +32,15 @@ fn march_ray(start_pos: vec2f, dir: vec2f) -> vec4f {
     var pos = start_pos;
 
     for (var step = 0u; step < 1024u; step += 1u) {
-        let color = textureSampleLevel(in_texture, nearest_sampler, to_tex(pos, texel), 0.);
-        if color.a > 0.99 {
-            return color;
+        let dist = textureSampleLevel(sdf_texture, nearest_sampler, to_tex(pos, texel), 0.).r;
+
+        if dist < 1 {
+            let color = textureSampleLevel(in_texture, nearest_sampler, to_tex(pos, texel), 0.);
+            if color.a > 0.99 {
+                return color;
+            }
         }
 
-        let dist = textureSampleLevel(sdf_texture, nearest_sampler, to_tex(pos, texel), 0.).r;
         pos += dir * dist * 0.9;
 
         if out_of_bounds(pos, in_texture_dims) {

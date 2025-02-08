@@ -50,17 +50,20 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
     var pos = start_pos;
 
     for (var step = 0u; step < 1024u; step += 1u) {
-        let color = textureSampleLevel(in_texture, nearest_sampler, pos * texel, 0.);
-        if color.a > 0.99 {
-            return color;
+        let dist = textureSampleLevel(sdf_texture, nearest_sampler, pos * texel, 0.).r;
+
+        if dist < 1 {
+            let color = textureSampleLevel(in_texture, nearest_sampler, pos * texel, 0.);
+            if color.a > 0.99 {
+                return color;
+            }
         }
 
-        let dist = textureSampleLevel(sdf_texture, nearest_sampler, pos * texel, 0.).r;
-        // TODO: check if the *0.9 is necessary
-        pos += dir * dist * 0.9;
+        // TODO: for small light sources, multiplying by 0.9 gives better results
+        pos += dir * dist;
 
         let from_start = pos - start_pos;
-        if out_of_bounds(pos, in_texture_dims) || from_start.x * from_start.x + from_start.y * from_start.y > maxlensq {
+        if out_of_bounds(pos, in_texture_dims) || dot(from_start, from_start) > maxlensq {
             return vec4f(0.);
         }
     }

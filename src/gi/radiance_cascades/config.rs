@@ -81,7 +81,7 @@ impl Default for RCConfig {
             c0_raylength: 1.,
             angular_scaling: 4,
             spatial_scaling: 2.,
-            num_cascades: 6,
+            num_cascades: 7,
         }
     }
 }

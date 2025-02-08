@@ -52,43 +52,9 @@ fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
 }
 
 fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
-    let resolution = cascade_spatial_resolution(cascade_index);
-
-    var res: vec2u;
-    {
-        var l = 0u;
-        var r = resolution.x + 1u;
-
-        while (l + 1 < r) {
-            let m = (l + r) / 2u;
-            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
-            if (pm <= probe_pos.x) {
-                l = m;
-            } else {
-                r = m;
-            }
-        }
-
-        res.x = l;
-    }
-    {
-        var l = 0u;
-        var r = resolution.y + 1u;
-
-        while (l + 1 < r) {
-            let m = (l + r) / 2u;
-            let pm = probe_position_from_index(cascade_index, vec2u(m, 0)).x;
-            if (pm <= probe_pos.y) {
-                l = m;
-            } else {
-                r = m;
-            }
-        }
-
-        res.y = l;
-    }
-
-    return res;
+    let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
+    let pp = probe_pos - 0.5 + offset * uniforms.c0_spacing;
+    return vec2u(pp / cascade_probe_spacing(cascade_index));
 }
 
 fn get_color(id2d: vec2u) -> vec4f {

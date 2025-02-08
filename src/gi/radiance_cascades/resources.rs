@@ -28,8 +28,8 @@ impl RCResources {
     pub const TEMP_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
     fn cascade_size_to_extent(cascade_size: u32, window_size: (u32, u32)) -> wgpu::Extent3d {
-        let width = window_size.0 + 1;
-        //let width = f32::sqrt(cascade_size as f32) as u32;
+        //let width = window_size.0 + 1;
+        let width = f32::sqrt(cascade_size as f32) as u32;
         let height = cascade_size.div_ceil(width);
         wgpu::Extent3d {
             width,

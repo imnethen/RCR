@@ -146,6 +146,8 @@ impl GIRenderer for RadianceCascades {
 
             ui.heading("cascade number");
             ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
+
+            ui.checkbox(&mut self.config.preaveraging, "Preaveraging");
         });
 
         if self.config != config_before_egui {

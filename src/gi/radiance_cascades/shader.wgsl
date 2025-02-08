@@ -8,6 +8,8 @@ struct uniform_data {
     angular_scaling: u32,
     spatial_scaling: f32,
 
+    preaveraging: u32,
+
     num_cascades: u32,
     cur_cascade: u32,
 }
@@ -83,7 +85,6 @@ fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw:
     var result = vec4f(0.);
 
     result = rc(id1d);
-    result = merge(id1d, result);
 
     textureStore(out_texture, out_pixel_pos, result);
 }
@@ -155,16 +156,32 @@ fn ray_angle_from_index(cascade_index: u32, ray_index: f32) -> f32 {
 fn rc(id: u32) -> vec4f {
     let cascade = uniforms.cur_cascade;
 
-    let ray_index = f32(get_ray_index(cascade, id)) + 0.5;
-    let angle = ray_angle_from_index(uniforms.cur_cascade, ray_index);
-    let dir = vec2f(cos(angle), sin(angle));
+    var num_rays: u32;
+    if uniforms.preaveraging == 1 {
+        num_rays = u32(cascade == 0) * uniforms.c0_rays + u32(cascade != 0) * uniforms.angular_scaling;
+    } else {
+        num_rays = 1u;
+    }
 
-    let pos = probe_position(cascade, id) + dir * cascade_ray_offset(cascade);
-    let ray_color = march_ray(pos, dir, cascade_ray_length(cascade));
-    return ray_color;
+    var result = vec4f(0);
+
+    for (var i = 0u; i < num_rays; i += 1u) {
+        let ray_index = f32(get_ray_index(cascade, id) * num_rays + i) + 0.5;
+        let angle = ray_angle_from_index(uniforms.cur_cascade, ray_index);
+        let dir = vec2f(cos(angle), sin(angle));
+
+        let pos = probe_position(cascade, id) + dir * cascade_ray_offset(cascade);
+        let ray_color = march_ray(pos, dir, cascade_ray_length(cascade));
+        let ray_result = merge(id, ray_color, get_ray_index(cascade, id) * num_rays + i);
+
+        result += ray_result;
+    }
+
+    result /= f32(num_rays);
+    return result;
 }
 
-fn merge(id: u32, ray_color: vec4f) -> vec4f {
+fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
     let curcascade = uniforms.cur_cascade;
 
     if curcascade >= uniforms.num_cascades - 1 || ray_color.a >= 0.99 {
@@ -175,9 +192,8 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
 
     let probe_index = probe_index_2d(curcascade, id);
     let probe_pos = probe_position_from_index(curcascade, probe_index);
-    let ray_index = get_ray_index(curcascade, id);
 
-    let prev_ray_index = ray_index * uniforms.angular_scaling;
+    let prev_ray_index = ray_index + (1 - uniforms.preaveraging) * ray_index * (uniforms.angular_scaling - 1);
     let prev_probe_index = probe_index_from_position(curcascade + 1, probe_pos);
     let prev_spatial = cascade_spatial_resolution(curcascade + 1);
 
@@ -194,16 +210,20 @@ fn merge(id: u32, ray_color: vec4f) -> vec4f {
 
         var probe_result = vec4f(0.);
 
-        for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
-            let merge_ray_index = prev_ray_index + j;
-            let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + merge_ray_index * prev_spatial.x * prev_spatial.y;
-            probe_result += textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
+        if uniforms.preaveraging == 1 {
+            let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
+            probe_result = textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
+        } else {
+            for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
+                let merge_ray_index = prev_ray_index + j;
+                let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + merge_ray_index * prev_spatial.x * prev_spatial.y;
+                probe_result += textureLoad(prev_cascade, pos_1d2d(pos, dims), 0) / f32(uniforms.angular_scaling);
+            }
         }
 
         result += probe_result * weights[i];
     }
 
-    result /= f32(uniforms.angular_scaling);
     result.a = 1.;
     return result;
 }

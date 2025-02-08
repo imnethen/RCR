@@ -6,6 +6,7 @@ pub struct RawUniformData {
     pub c0_raylength: f32,
     pub angular_scaling: u32,
     pub spatial_scaling: f32,
+    pub preaveraging: u32,
     pub num_cascades: u32,
     pub cur_cascade: u32,
 }
@@ -19,6 +20,7 @@ impl From<RCConfig> for RawUniformData {
             c0_raylength: config.c0_raylength,
             angular_scaling: config.angular_scaling,
             spatial_scaling: config.spatial_scaling,
+            preaveraging: config.preaveraging as u32,
             num_cascades: config.num_cascades,
             cur_cascade: 0,
         }
@@ -30,17 +32,13 @@ pub struct RCConfig {
     pub c0_rays: u32,
     pub c0_spacing: f32,
     pub c0_raylength: f32,
+
     pub angular_scaling: u32,
     pub spatial_scaling: f32,
+
+    pub preaveraging: bool,
+
     pub num_cascades: u32,
-    /*
-    TODO:
-
-    memory_layout (posfirst / dirfirst)
-    preaveraging
-
-    ...
-    */
 }
 
 impl RCConfig {
@@ -65,7 +63,19 @@ impl RCConfig {
     pub fn get_max_cascade_size(&self, window_size: (u32, u32)) -> u32 {
         let mut max: u32 = 0;
         for cascade_index in 0..self.num_cascades {
-            let num_rays = self.c0_rays * u32::pow(self.angular_scaling, cascade_index);
+            let num_rays = {
+                let no_preaveraging = self.c0_rays * u32::pow(self.angular_scaling, cascade_index);
+                if !self.preaveraging {
+                    no_preaveraging
+                } else {
+                    if cascade_index == 0 {
+                        1
+                    } else {
+                        no_preaveraging / self.angular_scaling
+                    }
+                }
+            };
+
             max = max.max(num_rays * self.get_num_probes_1d(window_size, cascade_index));
         }
 
@@ -79,8 +89,12 @@ impl Default for RCConfig {
             c0_rays: 4,
             c0_spacing: 1.,
             c0_raylength: 1.,
+
             angular_scaling: 4,
             spatial_scaling: 2.,
+
+            preaveraging: true,
+
             num_cascades: 7,
         }
     }

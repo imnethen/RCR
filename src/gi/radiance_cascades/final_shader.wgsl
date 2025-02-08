@@ -6,6 +6,8 @@ struct uniform_data {
     angular_scaling: u32,
     spatial_scaling: f32,
 
+    preaveraging: u32,
+
     num_cascades: u32,
     cur_cascade: u32,
 }
@@ -70,16 +72,19 @@ fn get_color(id2d: vec2u) -> vec4f {
 
     var result = vec4f(0.);
 
-    // TODO: variable names
     for (var i = 0u; i < 4; i += 1u) {
         let offset = vec2u(i & 1, i >> 1);
-        let pindex1d = pos_2d1d(clamp(probe_index + offset, vec2u(0), spatial_resolution - 1), spatial_resolution);
+        let prev_index1d = pos_2d1d(clamp(probe_index + offset, vec2u(0), spatial_resolution - 1), spatial_resolution);
 
-        for (var j = 0u; j < uniforms.c0_rays; j += 1u) {
-            let prindex1d = pindex1d + j * spatial_resolution.x * spatial_resolution.y;
-            let prindex2d = pos_1d2d(prindex1d, temp_texture_dims);
+        if uniforms.preaveraging == 1 {
+            result += weights[i] * textureLoad(temp_texture, pos_1d2d(prev_index1d, temp_texture_dims), 0);
+        } else {
+            for (var j = 0u; j < uniforms.c0_rays; j += 1u) {
+                let probe_index1d = prev_index1d + j * spatial_resolution.x * spatial_resolution.y;
+                let probe_index2d = pos_1d2d(probe_index1d, temp_texture_dims);
 
-            result += weights[i] * (1. / f32(uniforms.c0_rays)) * textureLoad(temp_texture, prindex2d, 0);
+                result += weights[i] * (1. / f32(uniforms.c0_rays)) * textureLoad(temp_texture, probe_index2d, 0);
+            }
         }
     }
 

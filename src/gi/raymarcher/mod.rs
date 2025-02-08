@@ -47,7 +47,7 @@ impl Raymarcher {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Raymarcher::SDF_FORMAT,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
             view_formats: &[],
         })
     }
@@ -81,7 +81,7 @@ impl Raymarcher {
         let sdf_texture = Raymarcher::create_sdf_texture(device, window_size);
         let sdf_view = sdf_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let jfa = JFA::new(device, window_size, Raymarcher::SDF_FORMAT);
+        let jfa = JFA::new(device, window_size);
 
         let uniform_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("raymarcher uniform bind group layout"),
@@ -244,8 +244,13 @@ impl GIRenderer for Raymarcher {
         let in_view = in_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let out_view = out_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.jfa
-            .render(device, queue, in_texture, &self.sdf_texture);
+        self.jfa.render(
+            device,
+            queue,
+            &in_view,
+            &self.sdf_view,
+            (in_texture.size().width, in_texture.size().height),
+        );
 
         let textures_bind_group = self.create_texture_bind_group(device, &in_view, &out_view);
 
@@ -279,6 +284,6 @@ impl GIRenderer for Raymarcher {
         self.sdf_view = self
             .sdf_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.jfa = JFA::new(device, new_size, Raymarcher::SDF_FORMAT);
+        self.jfa = JFA::new(device, new_size);
     }
 }

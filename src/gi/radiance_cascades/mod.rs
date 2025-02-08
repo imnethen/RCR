@@ -24,7 +24,7 @@ impl RadianceCascades {
         let config = RCConfig::default();
 
         let resources = RCResources::new(device, window_size, config);
-        let jfa = JFA::new(device, window_size, RCResources::SDF_FORMAT);
+        let jfa = JFA::new(device, window_size);
 
         RadianceCascades {
             label,
@@ -49,8 +49,13 @@ impl GIRenderer for RadianceCascades {
         let in_view = in_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let out_view = out_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.jfa
-            .render(device, queue, in_texture, &self.resources.sdf_texture);
+        self.jfa.render(
+            device,
+            queue,
+            &in_view,
+            &self.resources.sdf_view,
+            (in_texture.size().width, in_texture.size().height),
+        );
 
         let in_texture_bind_group = self.resources.create_texture_bind_group(device, &in_view);
 
@@ -151,6 +156,6 @@ impl GIRenderer for RadianceCascades {
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
         self.window_size = new_size;
         self.resources = RCResources::new(device, new_size, self.config);
-        self.jfa = JFA::new(device, new_size, RCResources::SDF_FORMAT);
+        self.jfa = JFA::new(device, new_size);
     }
 }

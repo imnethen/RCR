@@ -8,7 +8,6 @@ pub struct RCResources {
     pub temp_textures: [wgpu::Texture; 2],
     pub temp_views: [wgpu::TextureView; 2],
 
-    pub sdf_texture: wgpu::Texture,
     pub sdf_view: wgpu::TextureView,
 
     // uniform buffer, samplers, sdf texture
@@ -51,7 +50,7 @@ impl RCResources {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: RCResources::SDF_FORMAT,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
             view_formats: &[],
         })
     }
@@ -300,7 +299,6 @@ impl RCResources {
             temp_textures,
             temp_views,
 
-            sdf_texture,
             sdf_view,
 
             uniform_bind_group,

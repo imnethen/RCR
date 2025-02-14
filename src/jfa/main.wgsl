@@ -35,7 +35,3 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
 
     textureStore(out_texture, pixel_pos, vec4f(best_pos, 0., 0.));
 }
-
-fn out_of_bounds(pos: vec2i, dims: vec2u) -> bool {
-    return (pos.x < 0 || pos.y < 0 || pos.x >= i32(dims.x) || pos.y >= i32(dims.y));
-}

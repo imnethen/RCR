@@ -158,7 +158,7 @@ fn rc(id: u32) -> vec4f {
 
     var num_rays: u32;
     if uniforms.preaveraging == 1 {
-        num_rays = u32(cascade == 0) * uniforms.c0_rays + u32(cascade != 0) * uniforms.angular_scaling;
+        num_rays = select(uniforms.c0_rays, uniforms.angular_scaling, cascade != 0);
     } else {
         num_rays = 1u;
     }
@@ -193,7 +193,7 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
     let probe_index = probe_index_2d(curcascade, id);
     let probe_pos = probe_position_from_index(curcascade, probe_index);
 
-    let prev_ray_index = ray_index + (1 - uniforms.preaveraging) * ray_index * (uniforms.angular_scaling - 1);
+    let prev_ray_index = ray_index * select(uniforms.angular_scaling, 1u, uniforms.preaveraging == 1);
     let prev_probe_index = probe_index_from_position(curcascade + 1, probe_pos);
     let prev_spatial = cascade_spatial_resolution(curcascade + 1);
 

@@ -204,7 +204,6 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
 
     for (var i = 0u; i < 4; i += 1u) {
         let offset = vec2u(i & 1, i >> 1);
-        // TODO: check if clamp is necessary, i dont think it is
         let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
         var probe_result = vec4f(0.);

@@ -15,18 +15,13 @@ struct uniform_data {
 @group(0) @binding(0)
 var<uniform> uniforms: uniform_data;
 @group(0) @binding(1)
-var temp_texture: texture_2d<f32>;
+var<storage, read> cascade_buffer: array<vec2u>;
 @group(0) @binding(2)
 var out_texture: texture_storage_2d<rgba16float, write>;
 
-// convert position from 2d to 1d
-fn pos_2d1d(pos2d: vec2u, dims: vec2u) -> u32 {
-    return pos2d.x + pos2d.y * dims.x;
-}
-
-// convert position from 1d to 2d
-fn pos_1d2d(pos1d: u32, dims: vec2u) -> vec2u {
-    return vec2u(pos1d % dims.x, pos1d / dims.x);
+fn read_cascade(pos: u32) -> vec4f {
+    let packed = cascade_buffer[pos];
+    return vec4f(unpack2x16float(packed.x), unpack2x16float(packed.y));
 }
 
 @compute
@@ -60,7 +55,6 @@ fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
 }
 
 fn get_color(id2d: vec2u) -> vec4f {
-    let temp_texture_dims = textureDimensions(temp_texture);
     let pos = vec2f(id2d) + 0.5;
 
     let probe_index = probe_index_from_position(0u, pos);
@@ -77,13 +71,12 @@ fn get_color(id2d: vec2u) -> vec4f {
         let prev_index1d = pos_2d1d(clamp(probe_index + offset, vec2u(0), spatial_resolution - 1), spatial_resolution);
 
         if uniforms.preaveraging == 1 {
-            result += weights[i] * textureLoad(temp_texture, pos_1d2d(prev_index1d, temp_texture_dims), 0);
+            result += weights[i] * read_cascade(prev_index1d);
         } else {
             for (var j = 0u; j < uniforms.c0_rays; j += 1u) {
                 let probe_index1d = prev_index1d + j * spatial_resolution.x * spatial_resolution.y;
-                let probe_index2d = pos_1d2d(probe_index1d, temp_texture_dims);
 
-                result += weights[i] * (1. / f32(uniforms.c0_rays)) * textureLoad(temp_texture, probe_index2d, 0);
+                result += weights[i] * (1. / f32(uniforms.c0_rays)) * read_cascade(probe_index1d);
             }
         }
     }

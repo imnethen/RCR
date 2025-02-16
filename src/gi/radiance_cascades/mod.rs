@@ -86,8 +86,12 @@ impl GIRenderer for RadianceCascades {
                     &[],
                 );
                 compute_pass.dispatch_workgroups(
-                    u32::div_ceil(self.resources.temp_textures[0].width(), 16),
-                    u32::div_ceil(self.resources.temp_textures[0].height(), 16),
+                    u32::div_ceil(
+                        self.resources.cascade_buffers[0].size() as u32
+                            / RCResources::CASCADE_BUFFER_ELEM_SIZE,
+                        128,
+                    ),
+                    1,
                     1,
                 );
             }

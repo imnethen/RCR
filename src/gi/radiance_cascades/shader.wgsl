@@ -26,19 +26,22 @@ var sdf_texture: texture_2d<f32>;
 @group(1) @binding(0)
 var in_texture: texture_2d<f32>;
 
-@group(2) @binding(0)
-var prev_cascade: texture_2d<f32>;
-@group(2) @binding(1)
-var out_texture: texture_storage_2d<rgba16float, write>;
 
-// convert position from 2d to 1d
-fn pos_2d1d(pos2d: vec2u, dims: vec2u) -> u32 {
-    return pos2d.x + pos2d.y * dims.x;
+@group(2) @binding(0)
+var<storage, read> prev_cascade: array<vec2u>;
+@group(2) @binding(1)
+var<storage, read_write> out_cascade: array<vec2u>;
+
+// TODO: figure out if its possible to make generic read/write functions for this
+// the problem is that arguments are immutable and immutable arrays can only be indexed with constants
+fn read_prev_cascade(pos: u32) -> vec4f {
+    let packed = prev_cascade[pos];
+    return vec4f(unpack2x16float(packed.x), unpack2x16float(packed.y));
 }
 
-// convert position from 1d to 2d
-fn pos_1d2d(pos1d: u32, dims: vec2u) -> vec2u {
-    return vec2u(pos1d % dims.x, pos1d / dims.x);
+fn store_to_out_cascade(pos: u32, value: vec4f) {
+    let packed = vec2u(pack2x16float(value.rg), pack2x16float(value.ba));
+    out_cascade[pos] = packed;
 }
 
 fn out_of_bounds(pos: vec2f, dims: vec2u) -> bool {
@@ -74,19 +77,13 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
 }
 
 @compute
-@workgroup_size(16, 16)
-fn main(@builtin(global_invocation_id) id2d: vec3u, @builtin(num_workgroups) nw: vec3u) {
-    let id1d = pos_2d1d(id2d.xy, nw.xy * 16);
-    let in_texture_dims = textureDimensions(in_texture);
-    let out_texture_dims = textureDimensions(out_texture);
-    let in_pixel_pos = pos_1d2d(id1d, in_texture_dims);
-    let out_pixel_pos = pos_1d2d(id1d, out_texture_dims);
+@workgroup_size(128)
+fn main(@builtin(global_invocation_id) id3d: vec3u) {
+    let id = id3d.x;
 
-    var result = vec4f(0.);
+    let result = rc(id);
 
-    result = rc(id1d);
-
-    textureStore(out_texture, out_pixel_pos, result);
+    store_to_out_cascade(id, result);
 }
 
 // everything after this and before the next one is good and will not be deleted
@@ -188,8 +185,6 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
         return ray_color;
     }
 
-    let dims = textureDimensions(prev_cascade);
-
     let probe_index = probe_index_2d(curcascade, id);
     let probe_pos = probe_position_from_index(curcascade, probe_index);
 
@@ -212,12 +207,12 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
 
         if uniforms.preaveraging == 1 {
             let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
-            probe_result = textureLoad(prev_cascade, pos_1d2d(pos, dims), 0);
+            probe_result = read_prev_cascade(pos);
         } else {
             for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
                 let merge_ray_index = prev_ray_index + j;
                 let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + merge_ray_index * prev_spatial.x * prev_spatial.y;
-                probe_result += textureLoad(prev_cascade, pos_1d2d(pos, dims), 0) / f32(uniforms.angular_scaling);
+                probe_result += read_prev_cascade(pos) / f32(uniforms.angular_scaling);
             }
         }
 

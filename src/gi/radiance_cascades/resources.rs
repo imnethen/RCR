@@ -5,8 +5,7 @@ use egui_wgpu::wgpu;
 pub struct RCResources {
     pub uniform_buffer: wgpu::Buffer,
 
-    pub temp_textures: [wgpu::Texture; 2],
-    pub temp_views: [wgpu::TextureView; 2],
+    pub cascade_buffers: [wgpu::Buffer; 2],
 
     pub sdf_view: wgpu::TextureView,
 
@@ -14,7 +13,7 @@ pub struct RCResources {
     pub uniform_bind_group: wgpu::BindGroup,
 
     pub in_texture_bgl: wgpu::BindGroupLayout,
-    // ith bind group writes to ith texture
+    // ith bind group writes to ith buffer
     pub temp_bind_groups: [wgpu::BindGroup; 2],
 
     pub final_bgl: wgpu::BindGroupLayout,
@@ -25,18 +24,8 @@ pub struct RCResources {
 
 impl RCResources {
     pub const SDF_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::R16Float;
-    pub const TEMP_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
-
-    fn cascade_size_to_extent(cascade_size: u32, window_size: (u32, u32)) -> wgpu::Extent3d {
-        //let width = window_size.0 + 1;
-        let width = f32::sqrt(cascade_size as f32) as u32;
-        let height = cascade_size.div_ceil(width);
-        wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        }
-    }
+    // cascade buffers store vec2<u32>s
+    pub const CASCADE_BUFFER_ELEM_SIZE: u32 = 8;
 
     fn create_sdf_texture(device: &wgpu::Device, size: (u32, u32)) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
@@ -55,17 +44,13 @@ impl RCResources {
         })
     }
 
-    fn create_temp_textures(device: &wgpu::Device, size: wgpu::Extent3d) -> [wgpu::Texture; 2] {
+    fn create_cascade_buffers(device: &wgpu::Device, num_elems: u32) -> [wgpu::Buffer; 2] {
         core::array::from_fn(|_| {
-            device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("an rc temp texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: RCResources::TEMP_FORMAT,
-                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("an rc cascade buffer"),
+                size: (num_elems * RCResources::CASCADE_BUFFER_ELEM_SIZE) as wgpu::BufferAddress,
+                usage: wgpu::BufferUsages::STORAGE,
+                mapped_at_creation: false,
             })
         })
     }
@@ -91,17 +76,8 @@ impl RCResources {
             mapped_at_creation: false,
         });
 
-        let temp_textures = RCResources::create_temp_textures(
-            device,
-            RCResources::cascade_size_to_extent(
-                config.get_max_cascade_size(window_size),
-                window_size,
-            ),
-        );
-        let temp_views = [
-            temp_textures[0].create_view(&wgpu::TextureViewDescriptor::default()),
-            temp_textures[1].create_view(&wgpu::TextureViewDescriptor::default()),
-        ];
+        let cascade_buffers =
+            RCResources::create_cascade_buffers(&device, config.get_max_cascade_size(window_size));
 
         let sdf_texture = RCResources::create_sdf_texture(device, window_size);
         let sdf_view = sdf_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -187,20 +163,20 @@ impl RCResources {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: RCResources::TEMP_FORMAT,
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -214,11 +190,15 @@ impl RCResources {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&temp_views[1 - i]),
+                        resource: wgpu::BindingResource::Buffer(
+                            cascade_buffers[1 - i].as_entire_buffer_binding(),
+                        ),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&temp_views[i]),
+                        resource: wgpu::BindingResource::Buffer(
+                            cascade_buffers[i].as_entire_buffer_binding(),
+                        ),
                     },
                 ],
             })
@@ -240,10 +220,10 @@ impl RCResources {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -296,8 +276,7 @@ impl RCResources {
         RCResources {
             uniform_buffer,
 
-            temp_textures,
-            temp_views,
+            cascade_buffers,
 
             sdf_view,
 
@@ -342,7 +321,9 @@ impl RCResources {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&self.temp_views[temp_index]),
+                    resource: wgpu::BindingResource::Buffer(
+                        self.cascade_buffers[temp_index].as_entire_buffer_binding(),
+                    ),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,

@@ -24,6 +24,11 @@ fn read_cascade(pos: u32) -> vec4f {
     return vec4f(unpack2x16float(packed.x), unpack2x16float(packed.y));
 }
 
+// convert position from 2d to 1d
+fn pos_2d1d(pos2d: vec2u, dims: vec2u) -> u32 {
+    return pos2d.x + pos2d.y * dims.x;
+}
+
 @compute
 @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3u) {

@@ -54,6 +54,10 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
     let texel = vec2f(1.) / vec2f(in_texture_dims);
     var pos = start_pos;
 
+    if out_of_bounds(pos, in_texture_dims) {
+        return vec4f(0.);
+    }
+
     for (var step = 0u; step < 1024u; step += 1u) {
         let dist = textureSampleLevel(sdf_texture, nearest_sampler, pos * texel, 0.).r;
 

@@ -7,6 +7,7 @@ pub struct RawUniformData {
     pub angular_scaling: u32,
     pub spatial_scaling: f32,
     pub preaveraging: u32,
+    pub ringing_fix: u32,
     pub num_cascades: u32,
     pub cur_cascade: u32,
 }
@@ -21,9 +22,29 @@ impl From<RCConfig> for RawUniformData {
             angular_scaling: config.angular_scaling,
             spatial_scaling: config.spatial_scaling,
             preaveraging: config.preaveraging as u32,
+            ringing_fix: config.ringing_fix as u32,
             num_cascades: config.num_cascades,
             cur_cascade: 0,
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum RingingFix {
+    Vanilla = 0,
+    Bilinear = 1,
+}
+
+impl std::fmt::Display for RingingFix {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RingingFix::Vanilla => "Vanilla",
+                RingingFix::Bilinear => "Bilinear",
+            }
+        )
     }
 }
 
@@ -37,6 +58,7 @@ pub struct RCConfig {
     pub spatial_scaling: f32,
 
     pub preaveraging: bool,
+    pub ringing_fix: RingingFix,
 
     pub num_cascades: u32,
 }
@@ -94,6 +116,7 @@ impl Default for RCConfig {
             spatial_scaling: 2.,
 
             preaveraging: true,
+            ringing_fix: RingingFix::Bilinear,
 
             num_cascades: 7,
         }

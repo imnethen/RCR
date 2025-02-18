@@ -9,6 +9,8 @@ struct uniform_data {
     spatial_scaling: f32,
 
     preaveraging: u32,
+    // 0 - vanilla, 1 - bilinear
+    ringing_fix: u32,
 
     num_cascades: u32,
     cur_cascade: u32,
@@ -85,7 +87,13 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
 fn main(@builtin(global_invocation_id) id3d: vec3u) {
     let id = id3d.x;
 
-    let result = rc(id);
+    var result: vec4f;
+
+    if uniforms.ringing_fix == 0 {
+        result = rc(id);
+    } else if uniforms.ringing_fix == 1 {
+        result = rc_bilinear(id);
+    }
 
     store_to_out_cascade(id, result);
 }
@@ -150,6 +158,10 @@ fn get_ray_index(cascade_index: u32, id: u32) -> u32 {
 
 fn ray_angle_from_index(cascade_index: u32, ray_index: f32) -> f32 {
     return ray_index * tau / f32(cascade_angular_resolution(cascade_index));
+}
+
+fn ray_index_from_angle(cascade_index: u32, ray_angle: f32) -> f32 {
+    return (ray_angle / tau) * f32(cascade_angular_resolution(cascade_index));
 }
 
 // ---
@@ -222,6 +234,63 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
         result += probe_result * weights[i];
     }
 
+    result.a = 1.;
+    return result;
+}
+
+fn rc_bilinear(id: u32) -> vec4f {
+    if uniforms.preaveraging == 0 {
+        return vec4f(1., 0., 0., 1.);
+    }
+
+    let cascade = uniforms.cur_cascade;
+
+    let num_rays: u32 = select(uniforms.c0_rays, uniforms.angular_scaling, cascade != 0);
+
+    let probe_index = probe_index_2d(cascade, id);
+    let probe_pos = probe_position_from_index(cascade, probe_index);
+
+    let prev_probe_index = probe_index_from_position(cascade + 1, probe_pos);
+    let prev_spatial = cascade_spatial_resolution(cascade + 1);
+
+    let prev_probe_pos = probe_position_from_index(cascade + 1, prev_probe_index);
+    let d = probe_pos - prev_probe_pos;
+    var weights = bilinear_weights(d / cascade_probe_spacing(cascade + 1));
+
+    var result = vec4f(0.);
+
+    for (var i = 0u; i < num_rays; i += 1u) {
+        let ray_index = f32(get_ray_index(cascade, id) * num_rays + i) + 0.5;
+        let angle = ray_angle_from_index(uniforms.cur_cascade, ray_index);
+        let ray_dir = vec2f(cos(angle), sin(angle));
+
+        let prev_ray_index = u32(ray_index_from_angle(cascade + 1, angle) / f32(uniforms.angular_scaling));
+
+        for (var j = 0u; j < 4u; j += 1u) {
+            let offset = vec2u(j & 1, j >> 1);
+            let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
+            let merge_probe_pos = probe_position_from_index(cascade + 1, merge_probe_index);
+
+            let merge_buffer_index = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
+
+            var next_color: vec4f;
+            if uniforms.cur_cascade >= uniforms.num_cascades - 1 {
+                next_color = vec4f(0., 0., 0., 1.);
+            } else {
+                next_color = read_prev_cascade(merge_buffer_index);
+            }
+
+            let ray_start = probe_pos + ray_dir * cascade_ray_offset(cascade);
+            let ray_end = merge_probe_pos + ray_dir * cascade_ray_offset(cascade + 1);
+
+            let ray_color = march_ray(ray_start, normalize(ray_end - ray_start), distance(ray_end, ray_start));
+            let probe_result = select(next_color, ray_color, ray_color.a >= 0.99);
+
+            result += weights[j] * probe_result;
+        }
+    }
+
+    result /= f32(num_rays);
     result.a = 1.;
     return result;
 }

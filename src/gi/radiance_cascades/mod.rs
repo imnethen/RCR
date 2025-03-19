@@ -151,8 +151,6 @@ impl GIRenderer for RadianceCascades {
             ui.heading("cascade number");
             ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
 
-            ui.checkbox(&mut self.config.preaveraging, "Preaveraging");
-
             // TODO: better gui for this
             egui::ComboBox::from_label("Ringing Fix")
                 .selected_text(format!("{}", self.config.ringing_fix))

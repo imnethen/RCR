@@ -8,7 +8,6 @@ struct uniform_data {
     angular_scaling: u32,
     spatial_scaling: f32,
 
-    preaveraging: u32,
     // 0 - vanilla, 1 - bilinear
     ringing_fix: u32,
 
@@ -169,12 +168,7 @@ fn ray_index_from_angle(cascade_index: u32, ray_angle: f32) -> f32 {
 fn rc(id: u32) -> vec4f {
     let cascade = uniforms.cur_cascade;
 
-    var num_rays: u32;
-    if uniforms.preaveraging == 1 {
-        num_rays = select(uniforms.c0_rays, uniforms.angular_scaling, cascade != 0);
-    } else {
-        num_rays = 1u;
-    }
+    let num_rays = select(uniforms.c0_rays, uniforms.angular_scaling, cascade != 0);
 
     var result = vec4f(0);
 
@@ -204,7 +198,7 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
     let probe_index = probe_index_2d(curcascade, id);
     let probe_pos = probe_position_from_index(curcascade, probe_index);
 
-    let prev_ray_index = ray_index * select(uniforms.angular_scaling, 1u, uniforms.preaveraging == 1);
+    let prev_ray_index = ray_index;
     let prev_probe_index = probe_index_from_position(curcascade + 1, probe_pos);
     let prev_spatial = cascade_spatial_resolution(curcascade + 1);
 
@@ -218,18 +212,8 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
         let offset = vec2u(i & 1, i >> 1);
         let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
-        var probe_result = vec4f(0.);
-
-        if uniforms.preaveraging == 1 {
-            let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
-            probe_result = read_prev_cascade(pos);
-        } else {
-            for (var j = 0u; j < uniforms.angular_scaling; j += 1u) {
-                let merge_ray_index = prev_ray_index + j;
-                let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + merge_ray_index * prev_spatial.x * prev_spatial.y;
-                probe_result += read_prev_cascade(pos) / f32(uniforms.angular_scaling);
-            }
-        }
+        let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
+        let probe_result = read_prev_cascade(pos);
 
         result += probe_result * weights[i];
     }
@@ -239,10 +223,6 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
 }
 
 fn rc_bilinear(id: u32) -> vec4f {
-    if uniforms.preaveraging == 0 {
-        return vec4f(1., 0., 0., 1.);
-    }
-
     let cascade = uniforms.cur_cascade;
 
     let num_rays: u32 = select(uniforms.c0_rays, uniforms.angular_scaling, cascade != 0);

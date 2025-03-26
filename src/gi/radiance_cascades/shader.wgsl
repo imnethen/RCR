@@ -8,6 +8,8 @@ struct uniform_data {
     angular_scaling: u32,
     spatial_scaling: f32,
 
+    // 0 - offset, 1 - stacked
+    probe_layout: u32,
     // 0 - vanilla, 1 - bilinear
     ringing_fix: u32,
 
@@ -69,7 +71,6 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
             }
         }
 
-        // TODO: for small light sources, multiplying by 0.9 gives better results
         pos += dir * dist;
 
         let from_start = pos - start_pos;
@@ -85,7 +86,6 @@ fn march_ray(start_pos: vec2f, dir: vec2f, maxlen: f32) -> vec4f {
 @workgroup_size(128)
 fn main(@builtin(global_invocation_id) id3d: vec3u) {
     let id = id3d.x;
-
     var result: vec4f;
 
     if uniforms.ringing_fix == 0 {
@@ -136,12 +136,12 @@ fn probe_index_2d(cascade_index: u32, id: u32) -> vec2u {
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
     let pp = cascade_probe_spacing(cascade_index) * vec2f(probe_index);
     let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
-    return 0.5 + pp - offset * uniforms.c0_spacing;
+    return 0.5 + pp - f32(1 - uniforms.probe_layout) * offset * uniforms.c0_spacing;
 }
 
 fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
     let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
-    let pp = probe_pos - 0.5 + offset * uniforms.c0_spacing;
+    let pp = probe_pos - 0.5 + f32(1 - uniforms.probe_layout) * offset * uniforms.c0_spacing;
     return vec2u(pp / cascade_probe_spacing(cascade_index));
 }
 
@@ -198,7 +198,7 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
     let probe_index = probe_index_2d(curcascade, id);
     let probe_pos = probe_position_from_index(curcascade, probe_index);
 
-    let prev_ray_index = ray_index;
+    let prev_ray_store_index = ray_index;
     let prev_probe_index = probe_index_from_position(curcascade + 1, probe_pos);
     let prev_spatial = cascade_spatial_resolution(curcascade + 1);
 
@@ -209,10 +209,14 @@ fn merge(id: u32, ray_color: vec4f, ray_index: u32) -> vec4f {
     var result = vec4f(0.);
 
     for (var i = 0u; i < 4; i += 1u) {
+        if weights[i] < 0.01 {
+            continue;
+        }
+
         let offset = vec2u(i & 1, i >> 1);
         let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
 
-        let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_index * prev_spatial.x * prev_spatial.y;
+        let pos = merge_probe_index.x + merge_probe_index.y * prev_spatial.x + prev_ray_store_index * prev_spatial.x * prev_spatial.y;
         let probe_result = read_prev_cascade(pos);
 
         result += probe_result * weights[i];
@@ -247,6 +251,10 @@ fn rc_bilinear(id: u32) -> vec4f {
         let prev_ray_index = u32(ray_index_from_angle(cascade + 1, angle) / f32(uniforms.angular_scaling));
 
         for (var j = 0u; j < 4u; j += 1u) {
+            if weights[j] < 0.01 {
+                continue;
+            }
+
             let offset = vec2u(j & 1, j >> 1);
             let merge_probe_index = clamp(prev_probe_index + offset, vec2u(0), prev_spatial - 1);
             let merge_probe_pos = probe_position_from_index(cascade + 1, merge_probe_index);

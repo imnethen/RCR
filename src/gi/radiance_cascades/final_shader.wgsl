@@ -6,6 +6,11 @@ struct uniform_data {
     angular_scaling: u32,
     spatial_scaling: f32,
 
+    // 0 - offset, 1 - stacked
+    probe_layout: u32,
+    // 0 - vanilla, 1 - bilinear
+    ringing_fix: u32,
+
     num_cascades: u32,
     cur_cascade: u32,
 }
@@ -48,12 +53,12 @@ fn cascade_spatial_resolution(cascade_index: u32) -> vec2u {
 fn probe_position_from_index(cascade_index: u32, probe_index: vec2u) -> vec2f {
     let pp = cascade_probe_spacing(cascade_index) * vec2f(probe_index);
     let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
-    return 0.5 + pp - offset * uniforms.c0_spacing;
+    return 0.5 + pp - f32(1 - uniforms.probe_layout) * offset * uniforms.c0_spacing;
 }
 
 fn probe_index_from_position(cascade_index: u32, probe_pos: vec2f) -> vec2u {
     let offset = 0.5 * (pow(uniforms.spatial_scaling, f32(cascade_index)) - 1.) / (uniforms.spatial_scaling - 1.);
-    let pp = probe_pos - 0.5 + offset * uniforms.c0_spacing;
+    let pp = probe_pos - 0.5 + f32(1 - uniforms.probe_layout) * offset * uniforms.c0_spacing;
     return vec2u(pp / cascade_probe_spacing(cascade_index));
 }
 
@@ -70,6 +75,10 @@ fn get_color(id2d: vec2u) -> vec4f {
     var result = vec4f(0.);
 
     for (var i = 0u; i < 4; i += 1u) {
+        if weights[i] < 0.01 {
+            continue;
+        }
+
         let offset = vec2u(i & 1, i >> 1);
         let prev_index1d = pos_2d1d(clamp(probe_index + offset, vec2u(0), spatial_resolution - 1), spatial_resolution);
 

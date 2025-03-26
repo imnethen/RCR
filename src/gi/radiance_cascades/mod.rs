@@ -85,15 +85,13 @@ impl GIRenderer for RadianceCascades {
                     &self.resources.temp_bind_groups[i as usize % 2],
                     &[],
                 );
-                compute_pass.dispatch_workgroups(
-                    u32::div_ceil(
-                        self.resources.cascade_buffers[0].size() as u32
-                            / RCResources::CASCADE_BUFFER_ELEM_SIZE,
-                        128,
-                    ),
-                    1,
-                    1,
-                );
+
+                let cascade_size = self
+                    .config
+                    .get_cascade_size(self.window_size, self.config.num_cascades - i - 1);
+                let num_groups = u32::div_ceil(cascade_size, 128);
+
+                compute_pass.dispatch_workgroups(num_groups, 1, 1);
             }
             queue.submit(Some(encoder.finish()));
         }
@@ -123,51 +121,69 @@ impl GIRenderer for RadianceCascades {
     fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {
         let config_before_egui = self.config;
 
-        egui::Window::new(&self.label).show(ctx, |ui| {
-            ui.heading("rc !!!");
+        egui::Window::new(&self.label)
+            .default_size(egui::Vec2::new(1., 1.))
+            .show(ctx, |ui| {
+                ui.heading("rc !!!");
 
-            ui.heading("c0 raylength");
-            ui.add(egui::Slider::new(&mut self.config.c0_raylength, 0.5..=512.).logarithmic(true));
+                ui.heading("c0 raylength");
+                ui.add(
+                    egui::Slider::new(&mut self.config.c0_raylength, 0.5..=512.).logarithmic(true),
+                );
 
-            ui.heading("c0 probe spacing");
-            ui.add(egui::Slider::new(&mut self.config.c0_spacing, 0.25..=16.).step_by(0.25));
+                ui.heading("c0 probe spacing");
+                ui.add(egui::Slider::new(&mut self.config.c0_spacing, 0.25..=16.).step_by(0.25));
 
-            ui.heading("c0 ray count");
-            ui.add(egui::Slider::new(&mut self.config.c0_rays, 3..=256).logarithmic(true));
+                ui.heading("c0 ray count");
+                ui.add(egui::Slider::new(&mut self.config.c0_rays, 3..=256).logarithmic(true));
 
-            ui.heading("spatial scaling");
-            ui.label(format!(
-                "per axis, total is {}",
-                self.config.spatial_scaling.powi(2)
-            ));
-            ui.add(egui::Slider::new(
-                &mut self.config.spatial_scaling,
-                1.1..=4.0,
-            ));
+                ui.heading("spatial scaling");
+                ui.label(format!(
+                    "per axis, total is {}",
+                    self.config.spatial_scaling.powi(2)
+                ));
+                ui.add(egui::Slider::new(
+                    &mut self.config.spatial_scaling,
+                    1.1..=9.0,
+                ));
 
-            ui.heading("angular scaling");
-            ui.add(egui::Slider::new(&mut self.config.angular_scaling, 2..=16));
+                ui.heading("angular scaling");
+                ui.add(egui::Slider::new(&mut self.config.angular_scaling, 2..=16));
 
-            ui.heading("cascade number");
-            ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
+                ui.heading("cascade number");
+                ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
 
-            // TODO: better gui for this
-            egui::ComboBox::from_label("Ringing Fix")
-                .selected_text(format!("{}", self.config.ringing_fix))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut self.config.ringing_fix,
-                        config::RingingFix::Vanilla,
-                        "Vanilla",
+                ui.heading("probe layout");
+                ui.columns(2, |columns| {
+                    columns[0].radio_value(
+                        &mut self.config.probe_layout,
+                        config::ProbeLayout::Offset,
+                        "Offset",
                     );
-
-                    ui.selectable_value(
-                        &mut self.config.ringing_fix,
-                        config::RingingFix::Bilinear,
-                        "Bilinear",
+                    columns[1].radio_value(
+                        &mut self.config.probe_layout,
+                        config::ProbeLayout::Stacked,
+                        "Stacked",
                     );
                 });
-        });
+
+                // TODO: better gui for this
+                egui::ComboBox::from_label("Ringing Fix")
+                    .selected_text(format!("{}", self.config.ringing_fix))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.config.ringing_fix,
+                            config::RingingFix::Vanilla,
+                            "Vanilla",
+                        );
+
+                        ui.selectable_value(
+                            &mut self.config.ringing_fix,
+                            config::RingingFix::Bilinear,
+                            "Bilinear",
+                        );
+                    });
+            });
 
         if self.config != config_before_egui {
             self.resources = RCResources::new(device, self.window_size, self.config);

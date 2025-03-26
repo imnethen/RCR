@@ -97,7 +97,8 @@ impl RCConfig {
             _ => self.c0_rays * u32::pow(self.angular_scaling, cascade_index - 1),
         };
 
-        num_rays * self.get_num_probes_1d(window_size, cascade_index)
+        let res = u32::checked_mul(num_rays, self.get_num_probes_1d(window_size, cascade_index));
+        res.unwrap_or(std::u32::MAX)
     }
 
     pub fn get_max_cascade_size(&self, window_size: (u32, u32)) -> u32 {

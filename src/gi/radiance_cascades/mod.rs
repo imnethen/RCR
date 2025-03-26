@@ -13,6 +13,7 @@ pub struct RadianceCascades {
     pub label: String,
 
     config: RCConfig,
+    gui_config: RCConfig,
     window_size: (u32, u32),
 
     jfa: JFA,
@@ -30,6 +31,7 @@ impl RadianceCascades {
             label,
 
             config,
+            gui_config: config,
             window_size,
 
             jfa,
@@ -119,49 +121,72 @@ impl GIRenderer for RadianceCascades {
     }
 
     fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {
-        let config_before_egui = self.config;
+        let max_cascade_size = {
+            let max_buffer_elems =
+                device.limits().max_buffer_size / RCResources::CASCADE_BUFFER_ELEM_SIZE as u64;
+            let max_workgroups = device.limits().max_compute_workgroups_per_dimension;
+            u32::min(max_buffer_elems as u32, max_workgroups * 128)
+        };
 
         egui::Window::new(&self.label)
             .default_size(egui::Vec2::new(1., 1.))
             .show(ctx, |ui| {
-                ui.heading("rc !!!");
+                let size_label_color =
+                    if self.gui_config.get_max_cascade_size(self.window_size) > max_cascade_size {
+                        egui::Color32::from_rgb(255, 0, 0)
+                    } else {
+                        egui::Color32::from_rgb(200, 200, 200)
+                    };
+                ui.colored_label(
+                    size_label_color,
+                    format!(
+                        "Max cascade size: {}",
+                        self.gui_config.get_max_cascade_size(self.window_size)
+                    ),
+                );
 
                 ui.heading("c0 raylength");
                 ui.add(
-                    egui::Slider::new(&mut self.config.c0_raylength, 0.5..=512.).logarithmic(true),
+                    egui::Slider::new(&mut self.gui_config.c0_raylength, 0.5..=512.)
+                        .logarithmic(true),
                 );
 
                 ui.heading("c0 probe spacing");
-                ui.add(egui::Slider::new(&mut self.config.c0_spacing, 0.25..=16.).step_by(0.25));
+                ui.add(
+                    egui::Slider::new(&mut self.gui_config.c0_spacing, 0.25..=16.).step_by(0.25),
+                );
 
                 ui.heading("c0 ray count");
-                ui.add(egui::Slider::new(&mut self.config.c0_rays, 3..=256).logarithmic(true));
+                ui.add(egui::Slider::new(&mut self.gui_config.c0_rays, 3..=256).logarithmic(true));
 
                 ui.heading("spatial scaling");
                 ui.label(format!(
                     "per axis, total is {}",
-                    self.config.spatial_scaling.powi(2)
+                    self.gui_config.spatial_scaling.powi(2)
                 ));
                 ui.add(egui::Slider::new(
-                    &mut self.config.spatial_scaling,
+                    &mut self.gui_config.spatial_scaling,
                     1.1..=9.0,
                 ));
 
                 ui.heading("angular scaling");
-                ui.add(egui::Slider::new(&mut self.config.angular_scaling, 2..=16));
+                ui.add(egui::Slider::new(
+                    &mut self.gui_config.angular_scaling,
+                    2..=16,
+                ));
 
                 ui.heading("cascade number");
-                ui.add(egui::Slider::new(&mut self.config.num_cascades, 1..=16));
+                ui.add(egui::Slider::new(&mut self.gui_config.num_cascades, 1..=16));
 
                 ui.heading("probe layout");
                 ui.columns(2, |columns| {
                     columns[0].radio_value(
-                        &mut self.config.probe_layout,
+                        &mut self.gui_config.probe_layout,
                         config::ProbeLayout::Offset,
                         "Offset",
                     );
                     columns[1].radio_value(
-                        &mut self.config.probe_layout,
+                        &mut self.gui_config.probe_layout,
                         config::ProbeLayout::Stacked,
                         "Stacked",
                     );
@@ -169,23 +194,29 @@ impl GIRenderer for RadianceCascades {
 
                 // TODO: better gui for this
                 egui::ComboBox::from_label("Ringing Fix")
-                    .selected_text(format!("{}", self.config.ringing_fix))
+                    .selected_text(format!("{}", self.gui_config.ringing_fix))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
-                            &mut self.config.ringing_fix,
+                            &mut self.gui_config.ringing_fix,
                             config::RingingFix::Vanilla,
                             "Vanilla",
                         );
 
                         ui.selectable_value(
-                            &mut self.config.ringing_fix,
+                            &mut self.gui_config.ringing_fix,
                             config::RingingFix::Bilinear,
                             "Bilinear",
                         );
                     });
             });
 
-        if self.config != config_before_egui {
+        if self.gui_config.get_max_cascade_size(self.window_size) > max_cascade_size {
+            println!("Config ignored, the cascades are too big");
+            return;
+        }
+
+        if self.config != self.gui_config {
+            self.config = self.gui_config;
             self.resources = RCResources::new(device, self.window_size, self.config);
         }
     }

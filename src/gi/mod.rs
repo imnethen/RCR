@@ -1,11 +1,13 @@
 mod difference;
 mod radiance_cascades;
 mod raymarcher;
+mod texture;
 
 use difference::Difference;
 use egui_wgpu::wgpu;
 use radiance_cascades::RadianceCascades;
 use raymarcher::Raymarcher;
+use texture::TextureRenderer;
 
 trait GIRenderer {
     fn render(
@@ -17,7 +19,7 @@ trait GIRenderer {
     );
 
     #[allow(unused_variables)]
-    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {}
+    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device, queue: &wgpu::Queue) {}
 
     #[allow(unused_variables)]
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {}
@@ -100,9 +102,8 @@ impl GI {
         }
     }
 
-    pub fn render_egui(&mut self, device: &wgpu::Device, ctx: &egui::Context) {
+    pub fn render_egui(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, ctx: &egui::Context) {
         egui::Window::new("h")
-            // whar
             .default_size(egui::Vec2::new(180., 1.))
             .show(ctx, |ui| {
                 if ui.button("new raymarcher").clicked() {
@@ -118,6 +119,13 @@ impl GI {
                         device,
                         self.cur_window_size,
                         format!("rc {}", self.renderers.len()),
+                    )));
+                }
+                if ui.button("new texture renderer").clicked() {
+                    self.renderers.push(Box::new(TextureRenderer::new(
+                        device,
+                        self.cur_window_size,
+                        format!("texture {}", self.renderers.len()),
                     )));
                 }
                 ui.separator();
@@ -180,13 +188,13 @@ impl GI {
                     });
 
                 if self.diff_indices.0 < self.renderers.len() {
-                    self.renderers[self.diff_indices.0].render_egui(ctx, device);
+                    self.renderers[self.diff_indices.0].render_egui(ctx, device, queue);
                 }
                 if self.diff_indices.1 < self.renderers.len() {
-                    self.renderers[self.diff_indices.1].render_egui(ctx, device);
+                    self.renderers[self.diff_indices.1].render_egui(ctx, device, queue);
                 }
             }
-            CurRenderer::Index(i) => self.renderers[i].render_egui(ctx, device),
+            CurRenderer::Index(i) => self.renderers[i].render_egui(ctx, device, queue),
         };
     }
 }

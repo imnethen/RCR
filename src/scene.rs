@@ -195,8 +195,7 @@ impl Scene {
 
     pub fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device, queue: &wgpu::Queue) {
         egui::Window::new("scene")
-            // adfkdadadaldadfdakfda
-            .default_size(egui::Vec2::new(0., 0.))
+            .default_size(egui::Vec2::new(1., 1.))
             .show(ctx, |ui| {
                 ui.heading("brush shape");
                 ui.columns(2, |columns| {

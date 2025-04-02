@@ -136,7 +136,7 @@ impl<'a> State<'a> {
                 ctx.style_mut(|style| style.visuals.window_shadow = egui::epaint::Shadow::NONE);
 
                 self.scene.render_egui(ctx, &self.device, &self.queue);
-                self.gi.render_egui(&self.device, ctx);
+                self.gi.render_egui(&self.device, &self.queue, ctx);
             },
         );
     }

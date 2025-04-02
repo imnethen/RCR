@@ -120,7 +120,7 @@ impl GIRenderer for RadianceCascades {
         queue.submit(Some(encoder.finish()));
     }
 
-    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device) {
+    fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device, _: &wgpu::Queue) {
         let max_cascade_size = {
             let max_buffer_elems =
                 device.limits().max_buffer_size / RCResources::CASCADE_BUFFER_ELEM_SIZE as u64;

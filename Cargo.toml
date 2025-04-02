@@ -18,6 +18,8 @@ egui-winit = "0.28.1"
 
 glam = "0.29.0"
 
+tinyfiledialogs = "3.9.1"
+
 [dependencies.image]
 version = "0.25.2"
 default-features = false

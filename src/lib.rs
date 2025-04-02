@@ -135,7 +135,7 @@ impl<'a> State<'a> {
             |ctx| {
                 ctx.style_mut(|style| style.visuals.window_shadow = egui::epaint::Shadow::NONE);
 
-                self.scene.render_egui(ctx);
+                self.scene.render_egui(ctx, &self.device, &self.queue);
                 self.gi.render_egui(&self.device, ctx);
             },
         );
@@ -180,8 +180,8 @@ pub async fn run() {
     let event_loop = winit::event_loop::EventLoop::new().unwrap();
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
     let window = winit::window::WindowBuilder::new()
-        .with_resizable(false)
-        .with_inner_size(winit::dpi::PhysicalSize::new(1920, 1080))
+        .with_resizable(true)
+        .with_inner_size(winit::dpi::LogicalSize::new(1920, 1080))
         .build(&event_loop)
         .unwrap();
 
@@ -212,15 +212,31 @@ pub async fn run() {
                         let ns = (new_size.width, new_size.height);
 
                         state.out_texture = State::create_out_texture(&state.device, ns);
-                        state.scene.resize(&state.device, ns);
                         state.gi.resize(&state.device, ns);
+
+                        // state.scene.resize(&state.device, ns);
+                        if state.scene.texture().width() != state.config.width
+                            || state.scene.texture().height() != state.config.height
+                        {
+                            state.scene.resize(&state.device, ns);
+                        }
                     }
                     WindowEvent::CloseRequested => target.exit(),
                     WindowEvent::RedrawRequested => {
+                        state.input_controller.init_frame();
                         let start = std::time::Instant::now();
                         state.render();
                         println!("{:?}", std::time::Instant::now() - start);
-                        state.input_controller.init_frame();
+                        if state.scene.texture().width() != state.config.width
+                            || state.scene.texture().height() != state.config.height
+                        {
+                            let _ = state
+                                .window
+                                .request_inner_size(winit::dpi::LogicalSize::new(
+                                    state.scene.texture().width(),
+                                    state.scene.texture().height(),
+                                ));
+                        }
                         state.window.request_redraw();
                     }
                     WindowEvent::MouseInput {

@@ -77,6 +77,74 @@ impl Scene {
             .create_view(&wgpu::TextureViewDescriptor::default());
     }
 
+    fn load_texture_from_file(
+        &mut self,
+        filename: String,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        let texture_image = match image::load(
+            std::io::BufReader::new(match std::fs::File::open(filename) {
+                Ok(f) => f,
+                Err(e) => {
+                    println!("Error opening file: {}", e);
+                    return;
+                }
+            }),
+            image::ImageFormat::Png,
+        ) {
+            Ok(img) => img,
+            Err(e) => {
+                println!("Error loading image: {}", e);
+                return;
+            }
+        };
+
+        let texture_rgba = texture_image.to_rgba8();
+        let dimensions = texture_rgba.dimensions();
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("scene texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: dimensions.0,
+                height: dimensions.1,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        });
+
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &texture_rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
+            },
+            wgpu::Extent3d {
+                width: dimensions.0,
+                height: dimensions.1,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        self.texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.texture = texture;
+    }
+
     pub fn texture(&self) -> &wgpu::Texture {
         &self.texture
     }
@@ -125,7 +193,7 @@ impl Scene {
         }
     }
 
-    pub fn render_egui(&mut self, ctx: &egui::Context) {
+    pub fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device, queue: &wgpu::Queue) {
         egui::Window::new("scene")
             // adfkdadadaldadfdakfda
             .default_size(egui::Vec2::new(0., 0.))
@@ -155,6 +223,16 @@ impl Scene {
 
                 ui.heading("brush rmb color");
                 ui.color_edit_button_rgb(&mut self.config.brush_color_right);
+
+                if ui.button("Clear Texture").clicked() {
+                    self.clear_texture(&device);
+                }
+
+                if ui.button("Load Scene From File").clicked() {
+                    if let Some(filename) = tinyfiledialogs::open_file_dialog("Open", "", None) {
+                        self.load_texture_from_file(filename, device, queue);
+                    }
+                }
             });
     }
 }

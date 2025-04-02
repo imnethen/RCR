@@ -23,6 +23,10 @@ trait GIRenderer {
 
     #[allow(unused_variables)]
     fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {}
+
+    fn label(&self) -> String {
+        "NO LABEL".to_string()
+    }
 }
 
 #[derive(PartialEq)]
@@ -58,7 +62,11 @@ impl GI {
 
     pub fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
         self.cur_window_size = new_size;
-        self.difference.resize(device, new_size);
+        {
+            let old_config = self.difference.config;
+            self.difference = Difference::new(device, new_size);
+            self.difference.config = old_config;
+        }
         for i in 0..self.renderers.len() {
             self.renderers[i].resize(device, new_size);
         }
@@ -143,15 +151,25 @@ impl GI {
         match self.cur_renderer {
             CurRenderer::Diff => {
                 egui::Window::new("diff")
-                    // whar
                     .default_size(egui::Vec2::new(1., 1.))
                     .show(ctx, |ui| {
                         ui.heading("renderer indices");
 
-                        ui.columns(2, |columns| {
-                            columns[0].add(egui::DragValue::new(&mut self.diff_indices.0));
-                            columns[1].add(egui::DragValue::new(&mut self.diff_indices.1));
-                        });
+                        ui.label("choose renderers");
+                        egui::ComboBox::from_label("first")
+                            .selected_text(self.renderers[self.diff_indices.0].label())
+                            .show_ui(ui, |ui| {
+                                self.renderers.iter().enumerate().for_each(|(i, r)| {
+                                    ui.selectable_value(&mut self.diff_indices.0, i, r.label());
+                                });
+                            });
+                        egui::ComboBox::from_label("second")
+                            .selected_text(self.renderers[self.diff_indices.1].label())
+                            .show_ui(ui, |ui| {
+                                self.renderers.iter().enumerate().for_each(|(i, r)| {
+                                    ui.selectable_value(&mut self.diff_indices.1, i, r.label());
+                                });
+                            });
 
                         ui.heading("multiplier");
                         ui.add(

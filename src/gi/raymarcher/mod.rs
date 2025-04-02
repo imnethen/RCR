@@ -286,4 +286,8 @@ impl GIRenderer for Raymarcher {
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.jfa = JFA::new(device, new_size);
     }
+
+    fn label(&self) -> String {
+        self.label.clone()
+    }
 }

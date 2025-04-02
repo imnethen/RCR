@@ -164,10 +164,21 @@ impl GIRenderer for TextureRenderer {
             .default_size(egui::Vec2::new(1., 1.))
             .show(ctx, |ui| {
                 if ui.button("Load Image").clicked() {
-                    if let Some(filename) = tinyfiledialogs::open_file_dialog("Open", "", None) {
-                        self.load_texture_from_file(filename, device, queue);
+                    if let Some(filename) = native_dialog::FileDialog::new()
+                        .show_open_single_file()
+                        .unwrap()
+                    {
+                        self.load_texture_from_file(
+                            filename.into_os_string().into_string().unwrap(),
+                            device,
+                            queue,
+                        );
                     }
                 }
             });
+    }
+
+    fn label(&self) -> String {
+        self.label.clone()
     }
 }

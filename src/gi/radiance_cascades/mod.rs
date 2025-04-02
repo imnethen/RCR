@@ -192,7 +192,6 @@ impl GIRenderer for RadianceCascades {
                     );
                 });
 
-                // TODO: better gui for this
                 egui::ComboBox::from_label("Ringing Fix")
                     .selected_text(format!("{}", self.gui_config.ringing_fix))
                     .show_ui(ui, |ui| {
@@ -225,5 +224,9 @@ impl GIRenderer for RadianceCascades {
         self.window_size = new_size;
         self.resources = RCResources::new(device, new_size, self.config);
         self.jfa = JFA::new(device, new_size);
+    }
+
+    fn label(&self) -> String {
+        self.label.clone()
     }
 }

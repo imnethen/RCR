@@ -10,6 +10,7 @@ pub enum DiffMode {
     Second = 4,
 }
 
+#[derive(Clone, Copy)]
 pub struct DiffConfig {
     pub mode: DiffMode,
     pub mult: f32,
@@ -169,10 +170,6 @@ impl Difference {
 
             pipeline,
         }
-    }
-
-    pub fn resize(&mut self, device: &wgpu::Device, new_size: (u32, u32)) {
-        //self.temp_textures = Difference::create_temp_textures(device, new_size);
     }
 
     pub fn render(&self, device: &wgpu::Device, queue: &wgpu::Queue, out_texture: &wgpu::Texture) {

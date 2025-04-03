@@ -145,21 +145,21 @@ impl GIRenderer for RadianceCascades {
                     ),
                 );
 
-                ui.heading("c0 raylength");
+                ui.heading("C0 raylength");
                 ui.add(
                     egui::Slider::new(&mut self.gui_config.c0_raylength, 0.5..=512.)
                         .logarithmic(true),
                 );
 
-                ui.heading("c0 probe spacing");
+                ui.heading("C0 probe spacing");
                 ui.add(
                     egui::Slider::new(&mut self.gui_config.c0_spacing, 0.25..=16.).step_by(0.25),
                 );
 
-                ui.heading("c0 ray count");
+                ui.heading("C0 ray count");
                 ui.add(egui::Slider::new(&mut self.gui_config.c0_rays, 3..=256).logarithmic(true));
 
-                ui.heading("spatial scaling");
+                ui.heading("Spatial scaling");
                 ui.label(format!(
                     "per axis, total is {}",
                     self.gui_config.spatial_scaling.powi(2)
@@ -169,16 +169,16 @@ impl GIRenderer for RadianceCascades {
                     1.1..=9.0,
                 ));
 
-                ui.heading("angular scaling");
+                ui.heading("Angular scaling");
                 ui.add(egui::Slider::new(
                     &mut self.gui_config.angular_scaling,
                     2..=16,
                 ));
 
-                ui.heading("cascade number");
+                ui.heading("Cascade count");
                 ui.add(egui::Slider::new(&mut self.gui_config.num_cascades, 1..=16));
 
-                ui.heading("probe layout");
+                ui.heading("Probe layout");
                 ui.columns(2, |columns| {
                     columns[0].radio_value(
                         &mut self.gui_config.probe_layout,

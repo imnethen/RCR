@@ -48,7 +48,7 @@ pub struct GI {
 
 impl GI {
     pub fn new(device: &wgpu::Device, window_size: (u32, u32)) -> Self {
-        let default_renderer = RadianceCascades::new(&device, window_size, "rc 0".to_owned());
+        let default_renderer = RadianceCascades::new(&device, window_size, "RC 0".to_owned());
         GI {
             renderers: vec![Box::new(default_renderer)],
             cur_renderer: CurRenderer::Index(0),
@@ -111,59 +111,57 @@ impl GI {
     }
 
     pub fn render_egui(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, ctx: &egui::Context) {
-        egui::Window::new("h")
+        egui::Window::new("Renderers")
             .default_size(egui::Vec2::new(180., 1.))
             .show(ctx, |ui| {
-                if ui.button("new raymarcher").clicked() {
+                if ui.button("New raymarcher").clicked() {
                     self.renderers.push(Box::new(Raymarcher::new(
                         device,
                         self.cur_window_size,
                         wgpu::TextureFormat::Rgba16Float,
-                        format!("raymarcher {}", self.renderers.len()),
+                        format!("Raymarcher {}", self.renderers.len()),
                     )));
                 }
-                if ui.button("new radiance_cascades").clicked() {
+                if ui.button("New Radiance Cascades").clicked() {
                     self.renderers.push(Box::new(RadianceCascades::new(
                         device,
                         self.cur_window_size,
-                        format!("rc {}", self.renderers.len()),
+                        format!("RC {}", self.renderers.len()),
                     )));
                 }
-                if ui.button("new texture renderer").clicked() {
+                if ui.button("New texture renderer").clicked() {
                     self.renderers.push(Box::new(TextureRenderer::new(
                         device,
                         self.cur_window_size,
-                        format!("texture {}", self.renderers.len()),
+                        format!("Texture {}", self.renderers.len()),
                     )));
                 }
                 ui.separator();
-                ui.heading("current");
+                ui.heading("Current");
                 ui.radio_value(&mut self.cur_renderer, CurRenderer::Diff, "Difference");
                 for i in 0..self.renderers.len() {
                     ui.radio_value(
                         &mut self.cur_renderer,
                         CurRenderer::Index(i),
-                        format!("how do i name things {}", i),
+                        self.renderers[i].label(),
                     );
                 }
             });
 
         match self.cur_renderer {
             CurRenderer::Diff => {
-                egui::Window::new("diff")
+                egui::Window::new("Difference")
                     .default_size(egui::Vec2::new(1., 1.))
                     .show(ctx, |ui| {
-                        ui.heading("renderer indices");
-
-                        ui.label("choose renderers");
-                        egui::ComboBox::from_label("first")
+                        ui.heading("Choose renderers");
+                        egui::ComboBox::from_label("First")
                             .selected_text(self.renderers[self.diff_indices.0].label())
                             .show_ui(ui, |ui| {
                                 self.renderers.iter().enumerate().for_each(|(i, r)| {
                                     ui.selectable_value(&mut self.diff_indices.0, i, r.label());
                                 });
                             });
-                        egui::ComboBox::from_label("second")
+                        egui::ComboBox::from_label("Second")
                             .selected_text(self.renderers[self.diff_indices.1].label())
                             .show_ui(ui, |ui| {
                                 self.renderers.iter().enumerate().for_each(|(i, r)| {
@@ -171,37 +169,37 @@ impl GI {
                                 });
                             });
 
-                        ui.heading("multiplier");
+                        ui.heading("Multiplier");
                         ui.add(
                             egui::Slider::new(&mut self.difference.config.mult, 1.0..=200.)
                                 .logarithmic(true),
                         );
 
-                        ui.heading("difference mode");
+                        ui.heading("Difference mode");
                         ui.radio_value(
                             &mut self.difference.config.mode,
                             difference::DiffMode::Abs,
-                            "abs",
+                            "Abs",
                         );
                         ui.radio_value(
                             &mut self.difference.config.mode,
                             difference::DiffMode::FirstMinusSecond,
-                            "first - second",
+                            "First - second",
                         );
                         ui.radio_value(
                             &mut self.difference.config.mode,
                             difference::DiffMode::SecondMinusFirst,
-                            "second - first",
+                            "Second - first",
                         );
                         ui.radio_value(
                             &mut self.difference.config.mode,
                             difference::DiffMode::First,
-                            "first",
+                            "First",
                         );
                         ui.radio_value(
                             &mut self.difference.config.mode,
                             difference::DiffMode::Second,
-                            "second",
+                            "Second",
                         );
                     });
 

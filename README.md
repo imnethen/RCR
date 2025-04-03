@@ -1,5 +1,12 @@
-# grc
+# RCReference
 
-good radiance cascades. as opposed to my previous, Bad implementation
+A program that can be used as a reference to implement Radiance Cascades.
 
-update: this shit is Not good :skullemoji:
+# Installation
+Download the binary for your system from the Releases tab.
+Alternatively, build using Cargo:
+```
+git clone https://github.com/imnethen/rcreference
+cd rcreference
+cargo build --release
+```

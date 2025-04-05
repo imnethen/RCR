@@ -1,5 +1,5 @@
 [package]
-name = "RCReference"
+name = "rc"
 version = "1.0.0"
 edition = "2021"
 

@@ -114,7 +114,7 @@ impl GI {
         egui::Window::new("Renderers")
             .default_size(egui::Vec2::new(180., 1.))
             .show(ctx, |ui| {
-                if ui.button("New raymarcher").clicked() {
+                if ui.button("New Raymarcher").clicked() {
                     self.renderers.push(Box::new(Raymarcher::new(
                         device,
                         self.cur_window_size,
@@ -129,7 +129,7 @@ impl GI {
                         format!("RC {}", self.renderers.len()),
                     )));
                 }
-                if ui.button("New texture renderer").clicked() {
+                if ui.button("New Texture Renderer").clicked() {
                     self.renderers.push(Box::new(TextureRenderer::new(
                         device,
                         self.cur_window_size,

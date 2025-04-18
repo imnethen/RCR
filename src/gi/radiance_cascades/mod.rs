@@ -135,7 +135,7 @@ impl GIRenderer for RadianceCascades {
                     if self.gui_config.get_max_cascade_size(self.window_size) > max_cascade_size {
                         egui::Color32::from_rgb(255, 0, 0)
                     } else {
-                        egui::Color32::from_rgb(200, 200, 200)
+                        egui::Color32::from_rgb(150, 150, 150)
                     };
                 ui.colored_label(
                     size_label_color,
@@ -145,7 +145,7 @@ impl GIRenderer for RadianceCascades {
                     ),
                 );
 
-                ui.heading("C0 raylength");
+                ui.heading("C0 ray length");
                 ui.add(
                     egui::Slider::new(&mut self.gui_config.c0_raylength, 0.5..=512.)
                         .logarithmic(true),
@@ -192,7 +192,8 @@ impl GIRenderer for RadianceCascades {
                     );
                 });
 
-                egui::ComboBox::from_label("Ringing Fix")
+                ui.heading("Ringing fix");
+                egui::ComboBox::from_label("")
                     .selected_text(format!("{}", self.gui_config.ringing_fix))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(

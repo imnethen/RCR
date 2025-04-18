@@ -194,10 +194,10 @@ impl Scene {
     }
 
     pub fn render_egui(&mut self, ctx: &egui::Context, device: &wgpu::Device, queue: &wgpu::Queue) {
-        egui::Window::new("scene")
+        egui::Window::new("Scene")
             .default_size(egui::Vec2::new(1., 1.))
             .show(ctx, |ui| {
-                ui.heading("brush shape");
+                ui.heading("Brush shape");
                 ui.columns(2, |columns| {
                     columns[0].radio_value(
                         &mut self.config.brush_shape,
@@ -211,23 +211,23 @@ impl Scene {
                     );
                 });
 
-                ui.heading("brush size");
+                ui.heading("Brush size");
                 let brush_size_slider = egui::Slider::new(&mut self.config.brush_size, 1..=1024)
                     .logarithmic(true)
                     .suffix("px");
                 ui.add(brush_size_slider);
 
-                ui.heading("brush lmb color");
+                ui.heading("Brush LMB color");
                 ui.color_edit_button_rgb(&mut self.config.brush_color_left);
 
-                ui.heading("brush rmb color");
+                ui.heading("Brush RMB color");
                 ui.color_edit_button_rgb(&mut self.config.brush_color_right);
 
-                if ui.button("Clear Texture").clicked() {
+                if ui.button("Clear Scene").clicked() {
                     self.clear_texture(&device);
                 }
 
-                if ui.button("Load Scene From File").clicked() {
+                if ui.button("Load scene from file").clicked() {
                     if let Some(filename) = native_dialog::FileDialog::new()
                         .show_open_single_file()
                         .unwrap()

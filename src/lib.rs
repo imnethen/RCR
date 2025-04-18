@@ -180,7 +180,7 @@ pub async fn run() {
     let event_loop = winit::event_loop::EventLoop::new().unwrap();
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
     let window = winit::window::WindowBuilder::new()
-        .with_resizable(true)
+        .with_resizable(false)
         .with_inner_size(winit::dpi::LogicalSize::new(1920, 1080))
         .build(&event_loop)
         .unwrap();
